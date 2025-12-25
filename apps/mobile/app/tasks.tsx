@@ -1,17 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
-    Modal,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, API_URL, StorageKeys } from '../constants';
+import { API_URL, StorageKeys } from '../constants';
+import { haptics } from '../utils/haptics';
 
 interface Task {
     id: string;
@@ -61,6 +52,7 @@ export default function TasksScreen() {
 
     const createTask = async () => {
         if (!newTaskTitle.trim() || !user?.id) return;
+        haptics.success();
 
         try {
             const response = await fetch(`${API_URL}/tasks?user_id=${user.id}`, {
@@ -85,10 +77,10 @@ export default function TasksScreen() {
     const updateTaskStatus = async (taskId: string, newStatus: 'completed' | 'skipped') => {
         if (!user?.id) return;
 
-        // Optimistic update
-        setTasks(prev => prev.map(t =>
-            t.id === taskId ? { ...t, status: newStatus } : t
-        ));
+        if (newStatus === 'completed') haptics.success();
+        else haptics.warning();
+
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
 
         try {
             const task = tasks.find(t => t.id === taskId);
@@ -114,54 +106,54 @@ export default function TasksScreen() {
 
     if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+            <View className="flex-1 bg-[#0a0a0b] items-center justify-center">
+                <ActivityIndicator size="large" color="#f59e0b" />
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-                {/* Date & Quote */}
-                <Text style={styles.date}>{today}</Text>
-                <View style={styles.quoteBox}>
-                    <View style={styles.quoteLine} />
-                    <Text style={styles.quoteText}>"Consistency is quiet work."</Text>
+        <View className="flex-1 bg-[#0a0a0b]">
+            <ScrollView className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
+                {/* Date */}
+                <Text className="text-sm text-zinc-500 mb-2">{today}</Text>
+
+                {/* Quote */}
+                <View className="flex-row items-center mb-8">
+                    <View className="w-1 h-5 bg-[#f59e0b] rounded-full mr-3" />
+                    <Text className="text-sm text-zinc-400 italic">"Consistency is quiet work."</Text>
                 </View>
 
-                {/* Active Tasks */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Active Commitments</Text>
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{activeTasks.length} remaining</Text>
+                {/* Active Commitments */}
+                <View className="mb-8">
+                    <View className="flex-row justify-between items-center mb-4">
+                        <Text className="text-base font-semibold text-white">Active Commitments</Text>
+                        <View className="bg-[#18181b] px-3 py-1 rounded-full">
+                            <Text className="text-xs text-zinc-400">{activeTasks.length} remaining</Text>
                         </View>
                     </View>
 
                     {activeTasks.length === 0 ? (
-                        <Text style={styles.emptyText}>No active commitments. Add one below!</Text>
+                        <Text className="text-center text-zinc-500 py-8">No active commitments. Add one below!</Text>
                     ) : (
                         activeTasks.map(task => (
-                            <View key={task.id} style={styles.taskRow}>
-                                <View style={styles.taskIcon}>
-                                    <Ionicons name="document-text-outline" size={18} color={Colors.textSecondary} />
+                            <View key={task.id} className="flex-row items-center p-4 mb-2 bg-[#18181b] border border-white/5 rounded-2xl">
+                                <View className="w-9 h-9 bg-[#18181b] border border-white/10 rounded-xl items-center justify-center mr-3">
+                                    <Text className="text-zinc-400">○</Text>
                                 </View>
-                                <View style={styles.taskInfo}>
-                                    <Text style={styles.taskTitle}>{task.title}</Text>
-                                </View>
-                                <View style={styles.taskActions}>
+                                <Text className="flex-1 text-white text-[15px]">{task.title}</Text>
+                                <View className="flex-row gap-2">
                                     <TouchableOpacity
-                                        style={styles.actionBtn}
                                         onPress={() => updateTaskStatus(task.id, 'completed')}
+                                        className="w-8 h-8 bg-[#10b981]/10 border border-[#10b981]/30 rounded-lg items-center justify-center"
                                     >
-                                        <Ionicons name="checkmark" size={18} color={Colors.success} />
+                                        <Text className="text-[#10b981]">✓</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={styles.actionBtn}
                                         onPress={() => updateTaskStatus(task.id, 'skipped')}
+                                        className="w-8 h-8 bg-red-500/10 border border-red-500/30 rounded-lg items-center justify-center"
                                     >
-                                        <Ionicons name="close" size={18} color={Colors.error} />
+                                        <Text className="text-red-500">✕</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -171,14 +163,14 @@ export default function TasksScreen() {
 
                 {/* Completed */}
                 {completedTasks.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Completed ✓</Text>
+                    <View className="mb-8">
+                        <Text className="text-base font-semibold text-white mb-4">Completed ✓</Text>
                         {completedTasks.map(task => (
-                            <View key={task.id} style={[styles.taskRow, styles.taskRowDone]}>
-                                <View style={[styles.taskIcon, styles.taskIconDone]}>
-                                    <Ionicons name="checkmark" size={18} color={Colors.background} />
+                            <View key={task.id} className="flex-row items-center p-4 mb-2 bg-[#18181b]/50 border border-white/5 rounded-2xl opacity-60">
+                                <View className="w-9 h-9 bg-[#10b981] rounded-xl items-center justify-center mr-3">
+                                    <Text className="text-white">✓</Text>
                                 </View>
-                                <Text style={styles.taskTitleDone}>{task.title}</Text>
+                                <Text className="flex-1 text-zinc-400 line-through text-[15px]">{task.title}</Text>
                             </View>
                         ))}
                     </View>
@@ -186,14 +178,14 @@ export default function TasksScreen() {
 
                 {/* Skipped */}
                 {skippedTasks.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Skipped</Text>
+                    <View className="mb-8">
+                        <Text className="text-base font-semibold text-white mb-4">Skipped</Text>
                         {skippedTasks.map(task => (
-                            <View key={task.id} style={[styles.taskRow, styles.taskRowSkipped]}>
-                                <View style={[styles.taskIcon, styles.taskIconSkipped]}>
-                                    <Ionicons name="close" size={18} color={Colors.error} />
+                            <View key={task.id} className="flex-row items-center p-4 mb-2 bg-red-500/5 border border-red-500/20 rounded-2xl opacity-50">
+                                <View className="w-9 h-9 bg-red-500/20 rounded-xl items-center justify-center mr-3">
+                                    <Text className="text-red-500">✕</Text>
                                 </View>
-                                <Text style={styles.taskTitleDone}>{task.title}</Text>
+                                <Text className="flex-1 text-zinc-400 line-through text-[15px]">{task.title}</Text>
                             </View>
                         ))}
                     </View>
@@ -201,29 +193,46 @@ export default function TasksScreen() {
             </ScrollView>
 
             {/* FAB */}
-            <TouchableOpacity style={styles.fab} onPress={() => setShowModal(true)}>
-                <Ionicons name="add" size={28} color={Colors.background} />
+            <TouchableOpacity
+                onPress={() => {
+                    haptics.buttonTap();
+                    setShowModal(true);
+                }}
+                className="absolute bottom-6 right-6 w-14 h-14 bg-[#f59e0b] rounded-2xl items-center justify-center shadow-lg"
+                style={{ shadowColor: '#f59e0b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12 }}
+            >
+                <Text className="text-2xl text-black">+</Text>
             </TouchableOpacity>
 
             {/* Add Task Modal */}
             <Modal visible={showModal} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>New Commitment</Text>
+                <View className="flex-1 bg-black/60 justify-center px-6">
+                    <View className="bg-[#18181b] rounded-3xl p-6 border border-white/10">
+                        <Text className="text-xl font-bold text-white mb-4">New Commitment</Text>
                         <TextInput
-                            style={styles.modalInput}
-                            placeholder="What will you commit to?"
-                            placeholderTextColor={Colors.textPlaceholder}
                             value={newTaskTitle}
                             onChangeText={setNewTaskTitle}
+                            placeholder="What will you commit to?"
+                            placeholderTextColor="#52525b"
+                            className="bg-[#0a0a0b] border border-white/10 rounded-2xl px-5 py-4 text-white text-[15px] mb-6"
                             autoFocus
                         />
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity onPress={() => setShowModal(false)}>
-                                <Text style={styles.cancelBtn}>Cancel</Text>
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={() => {
+                                    haptics.buttonTap();
+                                    setShowModal(false);
+                                    setNewTaskTitle('');
+                                }}
+                                className="flex-1 py-3 items-center"
+                            >
+                                <Text className="text-zinc-400 font-semibold">Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.addBtn} onPress={createTask}>
-                                <Text style={styles.addBtnText}>Add</Text>
+                            <TouchableOpacity
+                                onPress={createTask}
+                                className="flex-1 bg-[#f59e0b] py-3 rounded-xl items-center"
+                            >
+                                <Text className="text-black font-bold">Add</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -232,191 +241,3 @@ export default function TasksScreen() {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    loadingContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    scroll: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 100,
-    },
-    date: {
-        color: Colors.textMuted,
-        fontSize: 14,
-        marginBottom: 8,
-    },
-    quoteBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    quoteLine: {
-        width: 3,
-        height: 20,
-        backgroundColor: Colors.primary,
-        marginRight: 12,
-        borderRadius: 2,
-    },
-    quoteText: {
-        color: Colors.textSecondary,
-        fontSize: 14,
-        fontStyle: 'italic',
-    },
-    section: {
-        marginBottom: 24,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        color: Colors.textPrimary,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    badge: {
-        backgroundColor: Colors.surface,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    badgeText: {
-        color: Colors.textSecondary,
-        fontSize: 12,
-    },
-    emptyText: {
-        color: Colors.textMuted,
-        textAlign: 'center',
-        paddingVertical: 32,
-    },
-    taskRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-        backgroundColor: Colors.surface,
-        borderRadius: 12,
-        marginBottom: 8,
-    },
-    taskRowDone: {
-        opacity: 0.6,
-    },
-    taskRowSkipped: {
-        opacity: 0.5,
-        backgroundColor: `${Colors.error}10`,
-    },
-    taskIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: Colors.surfaceLight,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    taskIconDone: {
-        backgroundColor: Colors.success,
-    },
-    taskIconSkipped: {
-        backgroundColor: `${Colors.error}30`,
-    },
-    taskInfo: {
-        flex: 1,
-    },
-    taskTitle: {
-        color: Colors.textPrimary,
-        fontSize: 15,
-    },
-    taskTitleDone: {
-        color: Colors.textSecondary,
-        fontSize: 15,
-        textDecorationLine: 'line-through',
-        flex: 1,
-    },
-    taskActions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    actionBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        backgroundColor: Colors.surfaceLight,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        backgroundColor: Colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 6,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: Colors.overlay,
-        justifyContent: 'center',
-        padding: 24,
-    },
-    modalContent: {
-        backgroundColor: Colors.surface,
-        borderRadius: 20,
-        padding: 24,
-    },
-    modalTitle: {
-        color: Colors.textPrimary,
-        fontSize: 20,
-        fontWeight: '700',
-        marginBottom: 16,
-    },
-    modalInput: {
-        backgroundColor: Colors.background,
-        borderRadius: 12,
-        padding: 16,
-        color: Colors.textPrimary,
-        fontSize: 16,
-        marginBottom: 20,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 16,
-    },
-    cancelBtn: {
-        color: Colors.textSecondary,
-        fontSize: 16,
-        padding: 12,
-    },
-    addBtn: {
-        backgroundColor: Colors.primary,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 10,
-    },
-    addBtnText: {
-        color: Colors.background,
-        fontSize: 16,
-        fontWeight: '700',
-    },
-});

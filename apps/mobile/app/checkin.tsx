@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
-import { Colors, API_URL, StorageKeys } from '../constants';
+import { API_URL, StorageKeys } from '../constants';
+import { haptics } from '../utils/haptics';
 
 export default function CheckinScreen() {
     const router = useRouter();
@@ -66,6 +59,7 @@ export default function CheckinScreen() {
     const handleSubmit = async () => {
         if (!user?.id) return;
 
+        haptics.success();
         setIsSubmitting(true);
         try {
             const response = await fetch(`${API_URL}/checkins?user_id=${user.id}`, {
@@ -84,6 +78,7 @@ export default function CheckinScreen() {
             }
         } catch (error) {
             console.error('Error submitting checkin:', error);
+            haptics.error();
         } finally {
             setIsSubmitting(false);
         }
@@ -114,93 +109,99 @@ export default function CheckinScreen() {
 
     if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+            <View className="flex-1 bg-[#0a0a0b] items-center justify-center">
+                <ActivityIndicator size="large" color="#f59e0b" />
             </View>
         );
     }
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView className="flex-1 bg-[#0a0a0b]" contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
             {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.greeting}>Good {getTimeOfDay()}, {userName}</Text>
-                <Text style={styles.subtitle}>Take a moment to pause and reflect.</Text>
+            <View className="mb-8">
+                <Text className="text-3xl font-bold text-white mb-2">Good {getTimeOfDay()}, {userName}</Text>
+                <Text className="text-[15px] text-zinc-400">Take a moment to pause and reflect.</Text>
             </View>
 
             {/* Mood Slider */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>How are you feeling? (1-10)</Text>
-                <Text style={styles.cardSubtitle}>Your emotional state right now</Text>
+            <View className="bg-[#18181b] rounded-3xl p-6 mb-4 border border-white/5">
+                <Text className="text-base font-semibold text-white mb-1">How are you feeling? (1-10)</Text>
+                <Text className="text-[13px] text-zinc-500 mb-6">Your emotional state right now</Text>
 
-                <View style={styles.sliderContainer}>
-                    <Text style={styles.sliderLabel}>Low</Text>
+                <View className="flex-row items-center mb-4">
+                    <Text className="text-[10px] text-zinc-500 uppercase tracking-wider mr-2">Low</Text>
                     <Slider
-                        style={styles.slider}
+                        style={{ flex: 1, height: 40 }}
                         minimumValue={1}
                         maximumValue={10}
                         step={1}
                         value={mood}
-                        onValueChange={setMood}
-                        minimumTrackTintColor={Colors.primary}
-                        maximumTrackTintColor={Colors.surfaceLight}
-                        thumbTintColor={Colors.primary}
+                        onValueChange={(v) => {
+                            setMood(v);
+                            haptics.selectionChanged();
+                        }}
+                        minimumTrackTintColor="#f59e0b"
+                        maximumTrackTintColor="#27272a"
+                        thumbTintColor="#f59e0b"
                     />
-                    <Text style={styles.sliderLabel}>High</Text>
+                    <Text className="text-[10px] text-zinc-500 uppercase tracking-wider ml-2">High</Text>
                 </View>
-                <View style={styles.sliderInfo}>
-                    <Text style={styles.sliderValue}>{mood}</Text>
-                    <Text style={styles.sliderLabelText}>{getMoodLabel(mood)}</Text>
+                <View className="items-center">
+                    <Text className="text-4xl font-bold text-[#f59e0b] mb-1">{mood}</Text>
+                    <Text className="text-sm text-[#f59e0b] uppercase tracking-widest">{getMoodLabel(mood)}</Text>
                 </View>
             </View>
 
             {/* Energy Slider */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>Energy level? (1-10)</Text>
-                <Text style={styles.cardSubtitle}>Physical and mental energy</Text>
+            <View className="bg-[#18181b] rounded-3xl p-6 mb-4 border border-white/5">
+                <Text className="text-base font-semibold text-white mb-1">Energy level? (1-10)</Text>
+                <Text className="text-[13px] text-zinc-500 mb-6">Physical and mental energy</Text>
 
-                <View style={styles.sliderContainer}>
-                    <Text style={styles.sliderLabel}>Drained</Text>
+                <View className="flex-row items-center mb-4">
+                    <Text className="text-[10px] text-zinc-500 uppercase tracking-wider mr-2">Drained</Text>
                     <Slider
-                        style={styles.slider}
+                        style={{ flex: 1, height: 40 }}
                         minimumValue={1}
                         maximumValue={10}
                         step={1}
                         value={energy}
-                        onValueChange={setEnergy}
-                        minimumTrackTintColor={Colors.secondary}
-                        maximumTrackTintColor={Colors.surfaceLight}
-                        thumbTintColor={Colors.secondary}
+                        onValueChange={(v) => {
+                            setEnergy(v);
+                            haptics.selectionChanged();
+                        }}
+                        minimumTrackTintColor="#10b981"
+                        maximumTrackTintColor="#27272a"
+                        thumbTintColor="#10b981"
                     />
-                    <Text style={styles.sliderLabel}>Full</Text>
+                    <Text className="text-[10px] text-zinc-500 uppercase tracking-wider ml-2">Full</Text>
                 </View>
-                <View style={styles.sliderInfo}>
-                    <Text style={[styles.sliderValue, { color: Colors.secondary }]}>{energy}</Text>
-                    <Text style={[styles.sliderLabelText, { color: Colors.secondary }]}>{getEnergyLabel(energy)}</Text>
+                <View className="items-center">
+                    <Text className="text-4xl font-bold text-[#10b981] mb-1">{energy}</Text>
+                    <Text className="text-sm text-[#10b981] uppercase tracking-widest">{getEnergyLabel(energy)}</Text>
                 </View>
             </View>
 
             {/* Reflection */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>Reflection</Text>
-                <Text style={styles.cardSubtitle}>What was the most significant part of your day?</Text>
+            <View className="bg-[#18181b] rounded-3xl p-6 mb-4 border border-white/5">
+                <Text className="text-base font-semibold text-white mb-1">Reflection</Text>
+                <Text className="text-[13px] text-zinc-500 mb-4">What was the most significant part of your day?</Text>
                 <TextInput
-                    style={styles.textArea}
-                    placeholder="I felt proud when..."
-                    placeholderTextColor={Colors.textPlaceholder}
                     value={reflection}
                     onChangeText={setReflection}
+                    placeholder="I felt proud when..."
+                    placeholderTextColor="#52525b"
                     multiline
                     numberOfLines={4}
                     textAlignVertical="top"
+                    className="bg-[#0a0a0b] border border-white/10 rounded-2xl px-5 py-4 text-white text-[15px] min-h-[100px]"
                 />
             </View>
 
             {/* Accountability */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>Accountability</Text>
-                <Text style={styles.cardSubtitle}>Did you stick to your core habit today?</Text>
-                <View style={styles.optionsRow}>
+            <View className="bg-[#18181b] rounded-3xl p-6 mb-6 border border-white/5">
+                <Text className="text-base font-semibold text-white mb-1">Accountability</Text>
+                <Text className="text-[13px] text-zinc-500 mb-4">Did you stick to your core habit today?</Text>
+                <View className="flex-row gap-3">
                     {[
                         { value: 'yes', label: 'Yes', icon: '✓' },
                         { value: 'partial', label: 'Partial', icon: '~' },
@@ -208,19 +209,16 @@ export default function CheckinScreen() {
                     ].map((option) => (
                         <TouchableOpacity
                             key={option.value}
-                            style={[
-                                styles.optionButton,
-                                accountability === option.value && styles.optionButtonActive,
-                            ]}
-                            onPress={() => setAccountability(option.value as any)}
+                            onPress={() => {
+                                setAccountability(option.value as any);
+                                haptics.selectionChanged();
+                            }}
+                            className={`flex-1 bg-[#0a0a0b] border rounded-2xl p-4 items-center ${accountability === option.value ? 'border-[#f59e0b] bg-[#f59e0b]/10' : 'border-white/10'
+                                }`}
                         >
-                            <Text style={styles.optionIcon}>{option.icon}</Text>
-                            <Text
-                                style={[
-                                    styles.optionLabel,
-                                    accountability === option.value && styles.optionLabelActive,
-                                ]}
-                            >
+                            <Text className="text-xl mb-2">{option.icon}</Text>
+                            <Text className={`text-[13px] font-semibold ${accountability === option.value ? 'text-[#f59e0b]' : 'text-zinc-400'
+                                }`}>
                                 {option.label}
                             </Text>
                         </TouchableOpacity>
@@ -230,162 +228,22 @@ export default function CheckinScreen() {
 
             {/* Submit Button */}
             <TouchableOpacity
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
                 disabled={isSubmitting}
+                className={`bg-[#f59e0b] rounded-2xl py-5 items-center mb-6 ${isSubmitting ? 'opacity-60' : ''}`}
             >
                 {isSubmitting ? (
-                    <ActivityIndicator color={Colors.background} />
+                    <ActivityIndicator color="#000" />
                 ) : (
-                    <Text style={styles.submitButtonText}>
+                    <Text className="text-black font-bold text-base uppercase tracking-widest">
                         {hasExistingCheckin ? 'Update Check-in' : 'Complete Check-in'}
                     </Text>
                 )}
             </TouchableOpacity>
 
-            <View style={styles.footer}>
-                <Text style={styles.footerText}>🔒 Your reflections are private and encrypted</Text>
+            <View className="items-center">
+                <Text className="text-xs text-zinc-600">🔒 Your reflections are private and encrypted</Text>
             </View>
         </ScrollView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    loadingContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    content: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    header: {
-        marginBottom: 24,
-    },
-    greeting: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 15,
-        color: Colors.textSecondary,
-    },
-    card: {
-        backgroundColor: Colors.surface,
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 16,
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        marginBottom: 4,
-    },
-    cardSubtitle: {
-        fontSize: 13,
-        color: Colors.textMuted,
-        marginBottom: 20,
-    },
-    sliderContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    slider: {
-        flex: 1,
-        height: 40,
-    },
-    sliderLabel: {
-        fontSize: 10,
-        color: Colors.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    sliderInfo: {
-        alignItems: 'center',
-        marginTop: 12,
-    },
-    sliderValue: {
-        fontSize: 32,
-        fontWeight: '700',
-        color: Colors.primary,
-    },
-    sliderLabelText: {
-        fontSize: 14,
-        color: Colors.primary,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginTop: 4,
-    },
-    textArea: {
-        backgroundColor: Colors.background,
-        borderRadius: 12,
-        padding: 16,
-        color: Colors.textPrimary,
-        fontSize: 16,
-        minHeight: 100,
-    },
-    optionsRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    optionButton: {
-        flex: 1,
-        backgroundColor: Colors.background,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    optionButtonActive: {
-        backgroundColor: `${Colors.primary}15`,
-        borderColor: Colors.primary,
-    },
-    optionIcon: {
-        fontSize: 20,
-        marginBottom: 6,
-    },
-    optionLabel: {
-        fontSize: 13,
-        color: Colors.textSecondary,
-        fontWeight: '600',
-    },
-    optionLabelActive: {
-        color: Colors.primary,
-    },
-    submitButton: {
-        backgroundColor: Colors.primary,
-        borderRadius: 16,
-        padding: 18,
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    submitButtonDisabled: {
-        opacity: 0.6,
-    },
-    submitButtonText: {
-        color: Colors.background,
-        fontSize: 16,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    footer: {
-        alignItems: 'center',
-        marginTop: 24,
-    },
-    footerText: {
-        color: Colors.textMuted,
-        fontSize: 12,
-    },
-});

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingVi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { API_URL, StorageKeys } from '../constants';
+import { haptics } from '../utils/haptics';
 
 interface Message {
     id: string;
@@ -106,6 +107,7 @@ export default function ChatScreen() {
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
 
+        haptics.messageSent();
         const userMsg: Message = {
             id: `temp-${Date.now()}`,
             role: 'user',
@@ -140,6 +142,7 @@ export default function ChatScreen() {
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
+            haptics.messageReceived();
             setMessages(prev => [...prev, {
                 id: `resp-${Date.now()}`,
                 role: 'assistant',
@@ -151,6 +154,7 @@ export default function ChatScreen() {
             }]);
         } catch (error) {
             console.error('Error:', error);
+            haptics.error();
             setMessages(prev => [...prev, {
                 id: `error-${Date.now()}`,
                 role: 'assistant',
@@ -167,6 +171,7 @@ export default function ChatScreen() {
 
     const handleToneChange = async (newTone: typeof toneMode) => {
         setToneMode(newTone);
+        haptics.selectionChanged();
         await AsyncStorage.setItem(StorageKeys.TONE_MODE, newTone);
     };
 
@@ -222,8 +227,8 @@ export default function ChatScreen() {
                                 key={mode.id}
                                 onPress={() => handleToneChange(mode.id as any)}
                                 className={`px-4 py-1.5 rounded-full border ${toneMode === mode.id
-                                        ? 'bg-[#f59e0b]/15 border-[#f59e0b]/30'
-                                        : 'bg-transparent border-white/5'
+                                    ? 'bg-[#f59e0b]/15 border-[#f59e0b]/30'
+                                    : 'bg-transparent border-white/5'
                                     }`}
                             >
                                 <Text className={`text-[11px] font-semibold tracking-wider uppercase ${toneMode === mode.id ? 'text-[#f59e0b]' : 'text-zinc-500'
@@ -257,8 +262,8 @@ export default function ChatScreen() {
                         {messages.map((msg) => (
                             <View key={msg.id} className={`flex ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                 <View className={`max-w-[85%] px-5 py-3.5 border shadow-lg ${msg.role === 'user'
-                                        ? 'bg-white/10 border-white/10 rounded-3xl rounded-br-sm'
-                                        : 'bg-[#18181b]/60 border-white/[0.05] rounded-3xl rounded-bl-sm'
+                                    ? 'bg-white/10 border-white/10 rounded-3xl rounded-br-sm'
+                                    : 'bg-[#18181b]/60 border-white/[0.05] rounded-3xl rounded-bl-sm'
                                     }`}>
                                     <Text className={`text-[15px] leading-relaxed font-light ${msg.role === 'user' ? 'text-white/95' : 'text-zinc-200'
                                         }`}>

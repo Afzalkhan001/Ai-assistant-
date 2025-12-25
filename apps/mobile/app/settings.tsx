@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
-    Image,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, StorageKeys, ToneModes } from '../constants';
+import { StorageKeys, ToneModes } from '../constants';
+import { haptics } from '../utils/haptics';
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -45,6 +37,7 @@ export default function SettingsScreen() {
                     text: 'Sign Out',
                     style: 'destructive',
                     onPress: async () => {
+                        haptics.buttonTap();
                         await AsyncStorage.removeItem(StorageKeys.USER);
                         await AsyncStorage.removeItem(StorageKeys.ACCESS_TOKEN);
                         router.replace('/login');
@@ -56,43 +49,40 @@ export default function SettingsScreen() {
 
     const handleToneChange = async (mode: string) => {
         setToneMode(mode);
+        haptics.selectionChanged();
         await AsyncStorage.setItem(StorageKeys.TONE_MODE, mode);
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView className="flex-1 bg-[#0a0a0b]" contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
             {/* Profile Section */}
-            <View style={styles.profileSection}>
-                <View style={styles.avatarContainer}>
+            <View className="items-center py-8 border-b border-white/5 mb-6">
+                <View className="w-20 h-20 rounded-full bg-[#18181b] border-2 border-[#f59e0b] items-center justify-center mb-4">
                     <Image
                         source={require('../assets/images/icon.png')}
-                        style={styles.avatar}
+                        className="w-18 h-18 rounded-full"
                     />
                 </View>
-                <Text style={styles.userName}>{user?.name || 'User'}</Text>
-                <Text style={styles.userEmail}>{user?.email || ''}</Text>
+                <Text className="text-2xl font-bold text-white mb-1">{user?.name || 'User'}</Text>
+                <Text className="text-sm text-zinc-500">{user?.email || ''}</Text>
             </View>
 
             {/* Tone Preference */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Default Tone</Text>
-                <Text style={styles.sectionSubtitle}>Set your preferred communication style</Text>
-                <View style={styles.toneGrid}>
+            <View className="mb-6">
+                <Text className="text-base font-semibold text-white mb-1">Default Tone</Text>
+                <Text className="text-[13px] text-zinc-500 mb-4">Set your preferred communication style</Text>
+                <View className="flex-row flex-wrap gap-2">
                     {Object.values(ToneModes).map((mode) => (
                         <TouchableOpacity
                             key={mode.id}
-                            style={[
-                                styles.toneOption,
-                                toneMode === mode.id && styles.toneOptionActive,
-                            ]}
                             onPress={() => handleToneChange(mode.id)}
+                            className={`px-5 py-3 rounded-2xl border ${toneMode === mode.id
+                                    ? 'bg-[#f59e0b]/15 border-[#f59e0b]/30'
+                                    : 'bg-[#18181b] border-white/10'
+                                }`}
                         >
-                            <Text
-                                style={[
-                                    styles.toneLabel,
-                                    toneMode === mode.id && styles.toneLabelActive,
-                                ]}
-                            >
+                            <Text className={`text-sm font-semibold ${toneMode === mode.id ? 'text-[#f59e0b]' : 'text-zinc-400'
+                                }`}>
                                 {mode.label}
                             </Text>
                         </TouchableOpacity>
@@ -101,184 +91,61 @@ export default function SettingsScreen() {
             </View>
 
             {/* About Section */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>About AERA</Text>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Version</Text>
-                    <Text style={styles.infoValue}>1.0.0</Text>
-                </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Your companion for accountability</Text>
+            <View className="mb-6">
+                <Text className="text-base font-semibold text-white mb-4">About AERA</Text>
+                <View className="bg-[#18181b] rounded-2xl border border-white/5 p-4">
+                    <View className="flex-row justify-between py-3 border-b border-white/5">
+                        <Text className="text-sm text-zinc-400">Version</Text>
+                        <Text className="text-sm text-white font-semibold">1.0.0</Text>
+                    </View>
+                    <View className="pt-3">
+                        <Text className="text-sm text-zinc-400">Your companion for accountability</Text>
+                    </View>
                 </View>
             </View>
 
             {/* Actions */}
-            <View style={styles.section}>
-                <TouchableOpacity style={styles.menuItem}>
-                    <Ionicons name="help-circle-outline" size={22} color={Colors.textSecondary} />
-                    <Text style={styles.menuItemText}>Help & Support</Text>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            <View className="mb-6">
+                <TouchableOpacity
+                    onPress={() => haptics.buttonTap()}
+                    className="flex-row items-center py-4 border-b border-white/5"
+                >
+                    <Text className="text-zinc-400 text-lg mr-3">ℹ️</Text>
+                    <Text className="flex-1 text-white text-[15px]">Help & Support</Text>
+                    <Text className="text-zinc-600">›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
-                    <Ionicons name="shield-checkmark-outline" size={22} color={Colors.textSecondary} />
-                    <Text style={styles.menuItemText}>Privacy Policy</Text>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                <TouchableOpacity
+                    onPress={() => haptics.buttonTap()}
+                    className="flex-row items-center py-4 border-b border-white/5"
+                >
+                    <Text className="text-zinc-400 text-lg mr-3">🔒</Text>
+                    <Text className="flex-1 text-white text-[15px]">Privacy Policy</Text>
+                    <Text className="text-zinc-600">›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
-                    <Ionicons name="document-text-outline" size={22} color={Colors.textSecondary} />
-                    <Text style={styles.menuItemText}>Terms of Service</Text>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                <TouchableOpacity
+                    onPress={() => haptics.buttonTap()}
+                    className="flex-row items-center py-4 border-b border-white/5"
+                >
+                    <Text className="text-zinc-400 text-lg mr-3">📄</Text>
+                    <Text className="flex-1 text-white text-[15px]">Terms of Service</Text>
+                    <Text className="text-zinc-600">›</Text>
                 </TouchableOpacity>
             </View>
 
             {/* Logout */}
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={22} color={Colors.error} />
-                <Text style={styles.logoutText}>Sign Out</Text>
+            <TouchableOpacity
+                onPress={handleLogout}
+                className="bg-red-500/10 border border-red-500/30 rounded-2xl py-4 items-center flex-row justify-center gap-2 mt-4"
+            >
+                <Text className="text-lg">🚪</Text>
+                <Text className="text-red-500 font-semibold text-base">Sign Out</Text>
             </TouchableOpacity>
 
-            <View style={styles.footer}>
-                <Text style={styles.footerText}>Made with 💛 for your growth</Text>
+            <View className="items-center mt-10">
+                <Text className="text-[13px] text-zinc-600">Made with 💛 for your growth</Text>
             </View>
         </ScrollView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    content: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    profileSection: {
-        alignItems: 'center',
-        paddingVertical: 32,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-        marginBottom: 24,
-    },
-    avatarContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: Colors.surface,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-        borderWidth: 2,
-        borderColor: Colors.primary,
-    },
-    avatar: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-    },
-    userName: {
-        fontSize: 22,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-        marginBottom: 4,
-    },
-    userEmail: {
-        fontSize: 14,
-        color: Colors.textMuted,
-    },
-    section: {
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        marginBottom: 4,
-    },
-    sectionSubtitle: {
-        fontSize: 13,
-        color: Colors.textMuted,
-        marginBottom: 16,
-    },
-    toneGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    toneOption: {
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-        borderRadius: 12,
-        backgroundColor: Colors.surface,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    toneOptionActive: {
-        backgroundColor: `${Colors.primary}20`,
-        borderColor: Colors.primary,
-    },
-    toneLabel: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        fontWeight: '600',
-    },
-    toneLabelActive: {
-        color: Colors.primary,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    infoLabel: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-    },
-    infoValue: {
-        fontSize: 14,
-        color: Colors.textPrimary,
-        fontWeight: '600',
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-        gap: 14,
-    },
-    menuItemText: {
-        flex: 1,
-        fontSize: 15,
-        color: Colors.textPrimary,
-    },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        paddingVertical: 16,
-        marginTop: 16,
-        backgroundColor: `${Colors.error}15`,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: `${Colors.error}30`,
-    },
-    logoutText: {
-        fontSize: 16,
-        color: Colors.error,
-        fontWeight: '600',
-    },
-    footer: {
-        alignItems: 'center',
-        marginTop: 40,
-    },
-    footerText: {
-        color: Colors.textMuted,
-        fontSize: 13,
-    },
-});
