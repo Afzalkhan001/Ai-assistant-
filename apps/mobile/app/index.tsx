@@ -1,314 +1,407 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
-    TouchableOpacity,
     TextInput,
-    Modal,
+    TouchableOpacity,
+    KeyboardAvoidingView,
+    Platform,
+    ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors, API_URL, StorageKeys, ToneModes } from '../constants';
 
-interface Task {
+interface Message {
     id: string;
-    title: string;
-    category: string;
-    done: boolean;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
 }
 
-export default function TasksScreen() {
-    const [showModal, setShowModal] = React.useState(false);
-    const [newTask, setNewTask] = React.useState('');
-    const [tasks, setTasks] = React.useState<Task[]>([
-        { id: '1', title: 'Morning meditation', category: 'Health', done: true },
-        { id: '2', title: 'Review project proposal', category: 'Work', done: false },
-        { id: '3', title: 'Call with team', category: 'Work', done: false },
-        { id: '4', title: 'Read for 30 minutes', category: 'Personal', done: false },
-    ]);
+export default function ChatScreen() {
+    const router = useRouter();
+    const scrollViewRef = useRef<ScrollView>(null);
 
-    const toggleTask = (id: string) => {
-        setTasks(tasks.map(t =>
-            t.id === id ? { ...t, done: !t.done } : t
-        ));
-    };
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+    const [toneMode, setToneMode] = useState<string>('balanced');
+    const [user, setUser] = useState<any>(null);
 
-    const addTask = () => {
-        if (newTask.trim()) {
-            setTasks([...tasks, {
-                id: Date.now().toString(),
-                title: newTask.trim(),
-                category: 'General',
-                done: false,
-            }]);
-            setNewTask('');
-            setShowModal(false);
+    useEffect(() => {
+        checkAuthAndLoad();
+    }, []);
+
+    const checkAuthAndLoad = async () => {
+        try {
+            const userStr = await AsyncStorage.getItem(StorageKeys.USER);
+            if (!userStr) {
+                router.replace('/login');
+                return;
+            }
+
+            const userData = JSON.parse(userStr);
+            setUser(userData);
+
+            // Load saved tone mode
+            const savedTone = await AsyncStorage.getItem(StorageKeys.TONE_MODE);
+            if (savedTone) setToneMode(savedTone);
+
+            // Load message history
+            await loadHistory(userData.id);
+        } catch (error) {
+            console.error('Auth check error:', error);
+            router.replace('/login');
         }
     };
 
-    const activeTasks = tasks.filter(t => !t.done);
-    const completedTasks = tasks.filter(t => t.done);
+    const loadHistory = async (userId: string) => {
+        try {
+            const response = await fetch(`${API_URL}/messages/${userId}?limit=50`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                    setMessages(data.messages.map((m: any) => ({
+                        id: m.id,
+                        role: m.role,
+                        content: m.content,
+                        timestamp: new Date(m.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }),
+                    })));
+                } else {
+                    setMessages([{
+                        id: 'welcome',
+                        role: 'assistant',
+                        content: "Hey. How's your day?",
+                        timestamp: new Date().toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }),
+                    }]);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading history:', error);
+            setMessages([{
+                id: 'welcome',
+                role: 'assistant',
+                content: "Hey. How's your day?",
+                timestamp: new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+            }]);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    const sendMessage = async () => {
+        if (!input.trim() || isLoading) return;
+
+        const userMsg: Message = {
+            id: `temp-${Date.now()}`,
+            role: 'user',
+            content: input.trim(),
+            timestamp: new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            }),
+        };
+
+        setMessages(prev => [...prev, userMsg]);
+        setInput('');
+        setIsLoading(true);
+
+        try {
+            const response = await fetch(`${API_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: userMsg.content,
+                    conversation_history: [],
+                    tone_mode: toneMode,
+                    user_data: {
+                        email: user?.email || 'user@example.com',
+                        name: user?.name || 'User',
+                        tone_mode: toneMode,
+                        explicit_allowed: toneMode === 'strict_raw',
+                    },
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            setMessages(prev => [...prev, {
+                id: `resp-${Date.now()}`,
+                role: 'assistant',
+                content: data.response,
+                timestamp: new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+            }]);
+        } catch (error) {
+            console.error('Chat error:', error);
+            setMessages(prev => [...prev, {
+                id: `error-${Date.now()}`,
+                role: 'assistant',
+                content: "Sorry, I couldn't connect. Make sure the backend is running.",
+                timestamp: new Date().toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+            }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleToneChange = async (mode: string) => {
+        setToneMode(mode);
+        await AsyncStorage.setItem(StorageKeys.TONE_MODE, mode);
+    };
+
+    const scrollToBottom = () => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    if (isLoadingHistory) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+        );
+    }
 
     return (
-        <View style={styles.container}>
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-                {/* Quote */}
-                <View style={styles.quoteBox}>
-                    <View style={styles.quoteLine} />
-                    <Text style={styles.quoteText}>"Consistency is quiet work."</Text>
-                </View>
-
-                {/* Active Tasks */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Active Commitments</Text>
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{activeTasks.length} remaining</Text>
-                        </View>
-                    </View>
-
-                    {activeTasks.map(task => (
-                        <TouchableOpacity
-                            key={task.id}
-                            style={styles.taskRow}
-                            onPress={() => toggleTask(task.id)}
-                        >
-                            <View style={styles.taskIcon}>
-                                <Ionicons
-                                    name={task.category === 'Work' ? 'briefcase' : task.category === 'Health' ? 'leaf' : 'book'}
-                                    size={18}
-                                    color="#94a3b8"
-                                />
-                            </View>
-                            <View style={styles.taskInfo}>
-                                <Text style={styles.taskTitle}>{task.title}</Text>
-                                <Text style={styles.taskCategory}>{task.category}</Text>
-                            </View>
-                            <View style={styles.checkbox} />
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Completed Tasks */}
-                {completedTasks.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Completed</Text>
-                        {completedTasks.map(task => (
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={90}
+        >
+            {/* Tone Selector */}
+            <View style={styles.toneContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.toneRow}>
+                        {Object.values(ToneModes).map((mode) => (
                             <TouchableOpacity
-                                key={task.id}
-                                style={styles.taskRow}
-                                onPress={() => toggleTask(task.id)}
+                                key={mode.id}
+                                style={[
+                                    styles.toneButton,
+                                    toneMode === mode.id && styles.toneButtonActive,
+                                ]}
+                                onPress={() => handleToneChange(mode.id)}
                             >
-                                <View style={[styles.taskIcon, styles.taskIconDone]}>
-                                    <Ionicons name="checkmark" size={18} color="#0f172a" />
-                                </View>
-                                <View style={styles.taskInfo}>
-                                    <Text style={[styles.taskTitle, styles.taskTitleDone]}>{task.title}</Text>
-                                    <Text style={styles.taskCategory}>{task.category}</Text>
-                                </View>
-                                <View style={[styles.checkbox, styles.checkboxDone]}>
-                                    <Ionicons name="checkmark" size={14} color="#0f172a" />
-                                </View>
+                                <Text
+                                    style={[
+                                        styles.toneText,
+                                        toneMode === mode.id && styles.toneTextActive,
+                                    ]}
+                                >
+                                    {mode.label}
+                                </Text>
                             </TouchableOpacity>
                         ))}
+                    </View>
+                </ScrollView>
+            </View>
+
+            {/* Messages */}
+            <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                contentContainerStyle={styles.messagesContent}
+                onContentSizeChange={scrollToBottom}
+            >
+                {messages.map((msg) => (
+                    <View
+                        key={msg.id}
+                        style={[
+                            styles.messageBubble,
+                            msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
+                        ]}
+                    >
+                        <Text style={styles.messageText}>{msg.content}</Text>
+                        <Text style={styles.messageTime}>{msg.timestamp}</Text>
+                    </View>
+                ))}
+
+                {isLoading && (
+                    <View style={[styles.messageBubble, styles.assistantBubble]}>
+                        <View style={styles.typingIndicator}>
+                            <View style={styles.typingDot} />
+                            <View style={[styles.typingDot, styles.typingDot2]} />
+                            <View style={[styles.typingDot, styles.typingDot3]} />
+                        </View>
                     </View>
                 )}
             </ScrollView>
 
-            {/* FAB */}
-            <TouchableOpacity style={styles.fab} onPress={() => setShowModal(true)}>
-                <Ionicons name="add" size={28} color="#0f172a" />
-            </TouchableOpacity>
-
-            {/* Add Task Modal */}
-            <Modal visible={showModal} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>New Commitment</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="What will you commit to?"
-                            placeholderTextColor="#64748b"
-                            value={newTask}
-                            onChangeText={setNewTask}
-                            autoFocus
-                        />
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity onPress={() => setShowModal(false)}>
-                                <Text style={styles.cancelBtn}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.addBtn} onPress={addTask}>
-                                <Text style={styles.addBtnText}>Add</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-        </View>
+            {/* Input Area */}
+            <View style={styles.inputContainer}>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Type a message..."
+                    placeholderTextColor={Colors.textPlaceholder}
+                    value={input}
+                    onChangeText={setInput}
+                    multiline
+                    maxLength={1000}
+                />
+                <TouchableOpacity
+                    style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
+                    onPress={sendMessage}
+                    disabled={!input.trim() || isLoading}
+                >
+                    <Ionicons
+                        name="arrow-up"
+                        size={20}
+                        color={input.trim() ? Colors.background : Colors.textMuted}
+                    />
+                </TouchableOpacity>
+            </View>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0f172a',
+        backgroundColor: Colors.background,
     },
-    scroll: {
+    loadingContainer: {
         flex: 1,
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 100,
-    },
-    quoteBox: {
-        flexDirection: 'row',
+        backgroundColor: Colors.background,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
     },
-    quoteLine: {
-        width: 3,
-        height: 20,
-        backgroundColor: '#f97316',
-        marginRight: 12,
-        borderRadius: 2,
-    },
-    quoteText: {
-        color: '#94a3b8',
-        fontSize: 14,
-        fontStyle: 'italic',
-    },
-    section: {
-        marginBottom: 24,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        color: '#f8fafc',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    badge: {
-        backgroundColor: '#334155',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    badgeText: {
-        color: '#94a3b8',
-        fontSize: 12,
-    },
-    taskRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 14,
+    toneContainer: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#1e293b',
+        borderBottomColor: Colors.border,
     },
-    taskIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        backgroundColor: '#1e293b',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
+    toneRow: {
+        flexDirection: 'row',
+        gap: 8,
     },
-    taskIconDone: {
-        backgroundColor: '#475569',
+    toneButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
-    taskInfo: {
-        flex: 1,
+    toneButtonActive: {
+        backgroundColor: `${Colors.primary}20`,
+        borderColor: Colors.primary,
     },
-    taskTitle: {
-        color: '#f8fafc',
-        fontSize: 15,
-        marginBottom: 2,
-    },
-    taskTitleDone: {
-        color: '#64748b',
-        textDecorationLine: 'line-through',
-    },
-    taskCategory: {
-        color: '#64748b',
+    toneText: {
+        color: Colors.textSecondary,
         fontSize: 12,
-    },
-    checkbox: {
-        width: 22,
-        height: 22,
-        borderRadius: 6,
-        borderWidth: 2,
-        borderColor: '#475569',
-    },
-    checkboxDone: {
-        backgroundColor: '#f8fafc',
-        borderColor: '#f8fafc',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#f97316',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        justifyContent: 'center',
-        padding: 24,
-    },
-    modalContent: {
-        backgroundColor: '#1e293b',
-        borderRadius: 16,
-        padding: 24,
-    },
-    modalTitle: {
-        color: '#f8fafc',
-        fontSize: 20,
         fontWeight: '600',
-        marginBottom: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    toneTextActive: {
+        color: Colors.primary,
+    },
+    messagesContainer: {
+        flex: 1,
+    },
+    messagesContent: {
+        padding: 16,
+        gap: 12,
+    },
+    messageBubble: {
+        maxWidth: '85%',
+        padding: 14,
+        borderRadius: 20,
+    },
+    userBubble: {
+        alignSelf: 'flex-end',
+        backgroundColor: Colors.surfaceLight,
+        borderBottomRightRadius: 4,
+    },
+    assistantBubble: {
+        alignSelf: 'flex-start',
+        backgroundColor: Colors.surface,
+        borderBottomLeftRadius: 4,
+    },
+    messageText: {
+        color: Colors.textPrimary,
+        fontSize: 15,
+        lineHeight: 22,
+    },
+    messageTime: {
+        color: Colors.textMuted,
+        fontSize: 10,
+        marginTop: 6,
+        alignSelf: 'flex-end',
+    },
+    typingIndicator: {
+        flexDirection: 'row',
+        gap: 4,
+        paddingVertical: 4,
+    },
+    typingDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: Colors.primary,
+        opacity: 0.4,
+    },
+    typingDot2: {
+        opacity: 0.6,
+    },
+    typingDot3: {
+        opacity: 0.8,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        padding: 12,
+        paddingBottom: 24,
+        gap: 10,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
     },
     input: {
-        backgroundColor: '#0f172a',
-        borderRadius: 8,
-        padding: 14,
-        color: '#f8fafc',
+        flex: 1,
+        backgroundColor: Colors.surface,
+        borderRadius: 24,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        paddingRight: 16,
         fontSize: 16,
-        marginBottom: 20,
+        color: Colors.textPrimary,
+        maxHeight: 120,
     },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 16,
+    sendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: Colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    cancelBtn: {
-        color: '#94a3b8',
-        fontSize: 16,
-        padding: 10,
-    },
-    addBtn: {
-        backgroundColor: '#f97316',
-        paddingHorizontal: 24,
-        paddingVertical: 10,
-        borderRadius: 8,
-    },
-    addBtnText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
+    sendButtonDisabled: {
+        backgroundColor: Colors.surface,
     },
 });
