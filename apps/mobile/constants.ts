@@ -1,12 +1,7 @@
 // AERA Mobile App - Shared Constants
 
-// API Configuration
-// For local development, use your computer's IP address (not localhost)
-// Replace with your actual backend URL when deployed
-export const API_URL = 'http://192.168.1.100:8000'; // Update this to your local IP
-
-// For production, you might use:
-// export const API_URL = 'https://your-backend.com';
+// API Configuration - PRODUCTION
+export const API_URL = 'https://aera-backend.onrender.com';
 
 // AERA Brand Colors
 export const Colors = {
