@@ -1,9 +1,37 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function SettingsScreen() {
     const [toneMode, setToneMode] = useState<'soft' | 'balanced' | 'strict'>('balanced');
     const [checkinTime, setCheckinTime] = useState('08:00');
     const [beginFeedback, setBeginFeedback] = useState(true);
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            // Call backend logout endpoint
+            await fetch('http://localhost:8000/auth/logout', {
+                method: 'POST'
+            });
+
+            // Clear local storage
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+
+            // Redirect to login
+            navigate('/login');
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Still clear local storage and redirect even if backend call fails
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+            navigate('/login');
+        }
+    };
+
+    // Get user from localStorage
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
 
     return (
         <div className="min-h-screen bg-bg-primary p-4">
@@ -17,11 +45,11 @@ export default function SettingsScreen() {
             <div className="card mb-6">
                 <div className="flex items-center gap-4 mb-4">
                     <div className="w-16 h-16 bg-accent-amber rounded-full flex items-center justify-center text-2xl font-bold text-bg-primary">
-                        AC
+                        {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
                     </div>
                     <div>
-                        <p className="text-text-primary font-medium">Alex Chen</p>
-                        <p className="text-text-muted text-sm">alex.chen@example.com</p>
+                        <p className="text-text-primary font-medium">{user?.name || 'User'}</p>
+                        <p className="text-text-muted text-sm">{user?.email || 'user@example.com'}</p>
                     </div>
                 </div>
                 <button className="text-accent-amber text-sm font-medium">Edit Profile</button>
@@ -39,8 +67,8 @@ export default function SettingsScreen() {
                             key={mode}
                             onClick={() => setToneMode(mode)}
                             className={`py-3 px-4 rounded-xl font-medium capitalize transition-all ${toneMode === mode
-                                    ? 'bg-accent-amber text-bg-primary'
-                                    : 'bg-bg-primary text-text-secondary hover:bg-bg-elevated border border-border'
+                                ? 'bg-accent-amber text-bg-primary'
+                                : 'bg-bg-primary text-text-secondary hover:bg-bg-elevated border border-border'
                                 }`}
                         >
                             {mode}
@@ -106,7 +134,10 @@ export default function SettingsScreen() {
                     <span className="text-text-muted">→</span>
                 </button>
 
-                <button className="card w-full text-left text-red-400">
+                <button
+                    onClick={handleLogout}
+                    className="card w-full text-left text-red-400 hover:bg-red-500/10 transition-colors"
+                >
                     Log Out
                 </button>
             </div>

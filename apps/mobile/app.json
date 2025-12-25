@@ -1,28 +1,48 @@
 {
-    "expo": {
-        "name": "AI Companion",
-        "slug": "ai-companion",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "scheme": "aicompanion",
-        "userInterfaceStyle": "dark",
-        "newArchEnabled": false,
-        "ios": {
-            "supportsTablet": true,
-            "bundleIdentifier": "com.aicompanion.app"
-        },
-        "android": {
-            "package": "com.aicompanion.app"
-        },
-        "web": {
-            "bundler": "metro",
-            "output": "single"
-        },
-        "plugins": [
-            "expo-router"
-        ],
-        "experiments": {
-            "typedRoutes": true
-        }
+  "expo": {
+    "name": "AERA",
+    "slug": "aera",
+    "owner": "afzalkhan8326",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "aera",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0b"
+    },
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aera.app"
+    },
+    "android": {
+      "package": "com.aera.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0a0a0b"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "67d90913-1fff-428f-95da-1ef2b2087b92"
+      }
     }
+  }
 }
