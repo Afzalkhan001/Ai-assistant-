@@ -1,19 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, API_URL, StorageKeys, ToneModes } from '../constants';
+import { API_URL, StorageKeys } from '../constants';
 
 interface Message {
     id: string;
@@ -24,18 +13,21 @@ interface Message {
 
 export default function ChatScreen() {
     const router = useRouter();
-    const scrollViewRef = useRef<ScrollView>(null);
-
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-    const [toneMode, setToneMode] = useState<string>('balanced');
+    const [toneMode, setToneMode] = useState<'soft' | 'balanced' | 'strict_clean' | 'strict_raw'>('balanced');
     const [user, setUser] = useState<any>(null);
+    const scrollViewRef = useRef<ScrollView>(null);
 
     useEffect(() => {
         checkAuthAndLoad();
     }, []);
+
+    useEffect(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, [messages]);
 
     const checkAuthAndLoad = async () => {
         try {
@@ -48,11 +40,9 @@ export default function ChatScreen() {
             const userData = JSON.parse(userStr);
             setUser(userData);
 
-            // Load saved tone mode
             const savedTone = await AsyncStorage.getItem(StorageKeys.TONE_MODE);
-            if (savedTone) setToneMode(savedTone);
+            if (savedTone) setToneMode(savedTone as any);
 
-            // Load message history
             await loadHistory(userData.id);
         } catch (error) {
             console.error('Auth check error:', error);
@@ -76,7 +66,6 @@ export default function ChatScreen() {
                         }),
                     })));
                 } else {
-                    // No messages yet, show welcome
                     setMessages([{
                         id: 'welcome',
                         role: 'assistant',
@@ -88,8 +77,6 @@ export default function ChatScreen() {
                     }]);
                 }
             } else {
-                // API error - show welcome message anyway
-                console.log('Messages API returned:', response.status);
                 setMessages([{
                     id: 'welcome',
                     role: 'assistant',
@@ -112,7 +99,6 @@ export default function ChatScreen() {
                 }),
             }]);
         } finally {
-            // ALWAYS stop loading
             setIsLoadingHistory(false);
         }
     };
@@ -151,12 +137,9 @@ export default function ChatScreen() {
                 }),
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
-
             setMessages(prev => [...prev, {
                 id: `resp-${Date.now()}`,
                 role: 'assistant',
@@ -167,11 +150,11 @@ export default function ChatScreen() {
                 }),
             }]);
         } catch (error) {
-            console.error('Chat error:', error);
+            console.error('Error:', error);
             setMessages(prev => [...prev, {
                 id: `error-${Date.now()}`,
                 role: 'assistant',
-                content: "Sorry, I couldn't connect. Make sure the backend is running.",
+                content: "Sorry, I'm having trouble connecting. Please try again.",
                 timestamp: new Date().toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit'
@@ -182,52 +165,69 @@ export default function ChatScreen() {
         }
     };
 
-    const handleToneChange = async (mode: string) => {
-        setToneMode(mode);
-        await AsyncStorage.setItem(StorageKeys.TONE_MODE, mode);
+    const handleToneChange = async (newTone: typeof toneMode) => {
+        setToneMode(newTone);
+        await AsyncStorage.setItem(StorageKeys.TONE_MODE, newTone);
     };
 
-    const scrollToBottom = () => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+    const getToneLabel = (tone: string) => {
+        const map: Record<string, string> = {
+            soft: 'Gentle',
+            balanced: 'Balanced',
+            strict_clean: 'Direct',
+            strict_raw: 'Raw'
+        };
+        return map[tone] || 'Balanced';
     };
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    if (isLoadingHistory) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-        );
-    }
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={90}
+            className="flex-1 bg-[#0a0a0b]"
         >
-            {/* Tone Selector */}
-            <View style={styles.toneContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.toneRow}>
-                        {Object.values(ToneModes).map((mode) => (
+            {/* Header */}
+            <View className="pt-12 pb-4 px-6 border-b border-white/5 bg-[#0a0a0b]">
+                <View className="flex-row justify-between items-center mb-3">
+                    <View className="flex-row items-center gap-3">
+                        <View className="relative">
+                            <Image
+                                source={require('../assets/images/icon.png')}
+                                className="w-9 h-9 rounded-full"
+                                style={{ shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 15 }}
+                            />
+                            <View className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#10b981] border-2 border-[#0a0a0b] rounded-full" />
+                        </View>
+                        <View>
+                            <Text className="text-base font-bold text-white tracking-wider">AERA</Text>
+                            <Text className="text-[10px] text-zinc-500 font-medium tracking-widest uppercase">
+                                {getToneLabel(toneMode)}
+                            </Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity className="w-8 h-8 rounded-full bg-white/5 items-center justify-center">
+                        <Text className="text-sm text-white/50">⋮</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Tone Mode Selector */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-1">
+                    <View className="flex-row gap-2">
+                        {[
+                            { id: 'soft', label: 'Gentle' },
+                            { id: 'balanced', label: 'Balanced' },
+                            { id: 'strict_clean', label: 'Direct' },
+                            { id: 'strict_raw', label: 'Raw' }
+                        ].map(mode => (
                             <TouchableOpacity
                                 key={mode.id}
-                                style={[
-                                    styles.toneButton,
-                                    toneMode === mode.id && styles.toneButtonActive,
-                                ]}
-                                onPress={() => handleToneChange(mode.id)}
+                                onPress={() => handleToneChange(mode.id as any)}
+                                className={`px-4 py-1.5 rounded-full border ${toneMode === mode.id
+                                        ? 'bg-[#f59e0b]/15 border-[#f59e0b]/30'
+                                        : 'bg-transparent border-white/5'
+                                    }`}
                             >
-                                <Text
-                                    style={[
-                                        styles.toneText,
-                                        toneMode === mode.id && styles.toneTextActive,
-                                    ]}
-                                >
+                                <Text className={`text-[11px] font-semibold tracking-wider uppercase ${toneMode === mode.id ? 'text-[#f59e0b]' : 'text-zinc-500'
+                                    }`}>
                                     {mode.label}
                                 </Text>
                             </TouchableOpacity>
@@ -239,183 +239,77 @@ export default function ChatScreen() {
             {/* Messages */}
             <ScrollView
                 ref={scrollViewRef}
-                style={styles.messagesContainer}
-                contentContainerStyle={styles.messagesContent}
-                onContentSizeChange={scrollToBottom}
+                className="flex-1 px-4 py-6"
+                contentContainerStyle={{ gap: 16 }}
             >
-                {messages.map((msg) => (
-                    <View
-                        key={msg.id}
-                        style={[
-                            styles.messageBubble,
-                            msg.role === 'user' ? styles.userBubble : styles.assistantBubble,
-                        ]}
-                    >
-                        <Text style={styles.messageText}>{msg.content}</Text>
-                        <Text style={styles.messageTime}>{msg.timestamp}</Text>
+                {isLoadingHistory ? (
+                    <View className="flex-1 items-center justify-center h-32">
+                        <ActivityIndicator size="small" color="#f59e0b" />
                     </View>
-                ))}
-
-                {isLoading && (
-                    <View style={[styles.messageBubble, styles.assistantBubble]}>
-                        <View style={styles.typingIndicator}>
-                            <View style={styles.typingDot} />
-                            <View style={[styles.typingDot, styles.typingDot2]} />
-                            <View style={[styles.typingDot, styles.typingDot3]} />
+                ) : (
+                    <>
+                        <View className="items-center mb-6">
+                            <View className="bg-white/[0.03] px-4 py-1.5 rounded-full border border-white/[0.05]">
+                                <Text className="text-[10px] font-bold tracking-widest text-zinc-500">CONVERSATION</Text>
+                            </View>
                         </View>
-                    </View>
+
+                        {messages.map((msg) => (
+                            <View key={msg.id} className={`flex ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                <View className={`max-w-[85%] px-5 py-3.5 border shadow-lg ${msg.role === 'user'
+                                        ? 'bg-white/10 border-white/10 rounded-3xl rounded-br-sm'
+                                        : 'bg-[#18181b]/60 border-white/[0.05] rounded-3xl rounded-bl-sm'
+                                    }`}>
+                                    <Text className={`text-[15px] leading-relaxed font-light ${msg.role === 'user' ? 'text-white/95' : 'text-zinc-200'
+                                        }`}>
+                                        {msg.content}
+                                    </Text>
+                                </View>
+                                <Text className="text-[10px] text-zinc-600 mt-2 px-1 font-medium opacity-60">
+                                    {msg.timestamp}
+                                </Text>
+                            </View>
+                        ))}
+
+                        {isLoading && (
+                            <View className="items-start">
+                                <View className="bg-[#18181b]/60 border border-white/[0.05] px-5 py-3.5 rounded-3xl rounded-bl-sm">
+                                    <View className="flex-row gap-1.5">
+                                        <View className="w-2 h-2 bg-[#f59e0b] rounded-full opacity-30" />
+                                        <View className="w-2 h-2 bg-[#f59e0b] rounded-full opacity-60" />
+                                        <View className="w-2 h-2 bg-[#f59e0b] rounded-full" />
+                                    </View>
+                                </View>
+                            </View>
+                        )}
+                    </>
                 )}
             </ScrollView>
 
-            {/* Input Area */}
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Type a message..."
-                    placeholderTextColor={Colors.textPlaceholder}
-                    value={input}
-                    onChangeText={setInput}
-                    multiline
-                    maxLength={1000}
-                />
-                <TouchableOpacity
-                    style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
-                    onPress={sendMessage}
-                    disabled={!input.trim() || isLoading}
-                >
-                    <Ionicons
-                        name="arrow-up"
-                        size={20}
-                        color={input.trim() ? Colors.background : Colors.textMuted}
+            {/* Input */}
+            <View className="px-4 pb-6 pt-3 bg-[#0a0a0b] border-t border-white/5">
+                <View className="flex-row items-center gap-3 bg-[#18181b] border border-white/10 rounded-2xl px-5 py-2">
+                    <TextInput
+                        value={input}
+                        onChangeText={setInput}
+                        placeholder="Message AERA..."
+                        placeholderTextColor="#52525b"
+                        onSubmitEditing={sendMessage}
+                        editable={!isLoading}
+                        className="flex-1 text-white text-[15px] py-2"
+                        multiline
+                        maxLength={500}
                     />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={sendMessage}
+                        disabled={!input.trim() || isLoading}
+                        className={`w-8 h-8 rounded-full items-center justify-center ${input.trim() && !isLoading ? 'bg-[#f59e0b]' : 'bg-white/5'
+                            }`}
+                    >
+                        <Text className={input.trim() && !isLoading ? 'text-black' : 'text-zinc-600'}>↑</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    loadingContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    toneContainer: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    toneRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    toneButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    toneButtonActive: {
-        backgroundColor: `${Colors.primary}20`,
-        borderColor: Colors.primary,
-    },
-    toneText: {
-        color: Colors.textSecondary,
-        fontSize: 12,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    toneTextActive: {
-        color: Colors.primary,
-    },
-    messagesContainer: {
-        flex: 1,
-    },
-    messagesContent: {
-        padding: 16,
-        gap: 12,
-    },
-    messageBubble: {
-        maxWidth: '85%',
-        padding: 14,
-        borderRadius: 20,
-    },
-    userBubble: {
-        alignSelf: 'flex-end',
-        backgroundColor: Colors.surfaceLight,
-        borderBottomRightRadius: 4,
-    },
-    assistantBubble: {
-        alignSelf: 'flex-start',
-        backgroundColor: Colors.surface,
-        borderBottomLeftRadius: 4,
-    },
-    messageText: {
-        color: Colors.textPrimary,
-        fontSize: 15,
-        lineHeight: 22,
-    },
-    messageTime: {
-        color: Colors.textMuted,
-        fontSize: 10,
-        marginTop: 6,
-        alignSelf: 'flex-end',
-    },
-    typingIndicator: {
-        flexDirection: 'row',
-        gap: 4,
-        paddingVertical: 4,
-    },
-    typingDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: Colors.primary,
-        opacity: 0.4,
-    },
-    typingDot2: {
-        opacity: 0.6,
-    },
-    typingDot3: {
-        opacity: 0.8,
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        padding: 12,
-        paddingBottom: 24,
-        gap: 10,
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-    },
-    input: {
-        flex: 1,
-        backgroundColor: Colors.surface,
-        borderRadius: 24,
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-        paddingRight: 16,
-        fontSize: 16,
-        color: Colors.textPrimary,
-        maxHeight: 120,
-    },
-    sendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    sendButtonDisabled: {
-        backgroundColor: Colors.surface,
-    },
-});
