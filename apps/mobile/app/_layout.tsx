@@ -2,12 +2,14 @@ import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Colors } from '../constants';
+import CustomTabBar from '../components/CustomTabBar';
 
 export default function TabLayout() {
     const router = useRouter();
 
     return (
         <Tabs
+            tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{
                 headerStyle: {
                     backgroundColor: Colors.background,
@@ -22,71 +24,39 @@ export default function TabLayout() {
                     fontSize: 18,
                     letterSpacing: 0.5,
                 },
-                tabBarStyle: {
-                    backgroundColor: Colors.background,
-                    borderTopColor: Colors.border,
-                    borderTopWidth: 1,
-                    height: 70,
-                    paddingBottom: 12,
-                    paddingTop: 8,
-                },
-                tabBarActiveTintColor: Colors.primary,
-                tabBarInactiveTintColor: Colors.textMuted,
-                tabBarLabelStyle: {
-                    fontSize: 11,
-                    fontWeight: '600',
-                },
+                tabBarHideOnKeyboard: true,
+                headerShown: false, // We use custom headers in screens usually, or simple ones here
             }}
         >
             <Tabs.Screen
                 name="index"
                 options={{
                     title: 'Chat',
-                    headerTitle: () => (
-                        <View style={styles.headerContainer}>
-                            <Image
-                                source={require('../assets/images/icon.png')}
-                                style={styles.logo}
-                            />
-                            <View>
-                                <Text style={styles.headerTitle}>AERA</Text>
-                                <Text style={styles.headerSubtitle}>Your companion</Text>
-                            </View>
-                        </View>
-                    ),
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="chatbubble" size={22} color={color} />
-                    ),
+                    headerShown: false, // Chat has its own absolute header
                 }}
             />
             <Tabs.Screen
                 name="tasks"
                 options={{
                     title: 'Flow',
+                    headerShown: true,
                     headerTitle: 'Your Commitments',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="flash" size={22} color={color} />
-                    ),
                 }}
             />
             <Tabs.Screen
                 name="checkin"
                 options={{
                     title: 'Check-in',
+                    headerShown: true,
                     headerTitle: 'Daily Check-in',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="sunny" size={22} color={color} />
-                    ),
                 }}
             />
             <Tabs.Screen
                 name="settings"
                 options={{
                     title: 'Settings',
+                    headerShown: true,
                     headerTitle: 'Settings',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="settings" size={22} color={color} />
-                    ),
                 }}
             />
             {/* Hidden screens */}
