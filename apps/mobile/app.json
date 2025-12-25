@@ -1,0 +1,28 @@
+{
+    "expo": {
+        "name": "AI Companion",
+        "slug": "ai-companion",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "scheme": "aicompanion",
+        "userInterfaceStyle": "dark",
+        "newArchEnabled": false,
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.aicompanion.app"
+        },
+        "android": {
+            "package": "com.aicompanion.app"
+        },
+        "web": {
+            "bundler": "metro",
+            "output": "single"
+        },
+        "plugins": [
+            "expo-router"
+        ],
+        "experiments": {
+            "typedRoutes": true
+        }
+    }
+}

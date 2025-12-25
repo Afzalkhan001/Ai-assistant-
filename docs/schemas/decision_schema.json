@@ -1,0 +1,107 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "AI Decision Response",
+    "description": "Structured response from GPT for notification decisions",
+    "type": "object",
+    "required": [
+        "decision_type",
+        "should_act",
+        "reasoning"
+    ],
+    "properties": {
+        "decision_type": {
+            "type": "string",
+            "enum": [
+                "reminder",
+                "check_in",
+                "motivation",
+                "accountability",
+                "celebration"
+            ],
+            "description": "Type of decision being made"
+        },
+        "should_act": {
+            "type": "boolean",
+            "description": "Whether any action should be taken"
+        },
+        "reasoning": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Brief explanation for audit log"
+        },
+        "notification": {
+            "type": "object",
+            "description": "Notification content if sending",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "description": "Notification title"
+                },
+                "body": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Notification body text"
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": [
+                        "low",
+                        "normal",
+                        "high"
+                    ],
+                    "default": "normal"
+                },
+                "action_type": {
+                    "type": "string",
+                    "enum": [
+                        "open_chat",
+                        "open_task",
+                        "dismiss"
+                    ],
+                    "default": "open_chat"
+                }
+            },
+            "required": [
+                "title",
+                "body"
+            ]
+        },
+        "suggested_followup": {
+            "type": "object",
+            "description": "Optional follow-up scheduling",
+            "properties": {
+                "delay_minutes": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 1440,
+                    "description": "Minutes to wait before follow-up"
+                },
+                "condition": {
+                    "type": "string",
+                    "enum": [
+                        "no_response",
+                        "task_not_done",
+                        "always"
+                    ],
+                    "description": "When to trigger follow-up"
+                }
+            },
+            "required": [
+                "delay_minutes",
+                "condition"
+            ]
+        },
+        "mood_assessment": {
+            "type": "string",
+            "enum": [
+                "positive",
+                "neutral",
+                "negative",
+                "crisis"
+            ],
+            "default": "neutral",
+            "description": "AI's assessment of user mood"
+        }
+    }
+}
