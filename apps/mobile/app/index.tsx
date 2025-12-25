@@ -76,6 +76,7 @@ export default function ChatScreen() {
                         }),
                     })));
                 } else {
+                    // No messages yet, show welcome
                     setMessages([{
                         id: 'welcome',
                         role: 'assistant',
@@ -86,6 +87,18 @@ export default function ChatScreen() {
                         }),
                     }]);
                 }
+            } else {
+                // API error - show welcome message anyway
+                console.log('Messages API returned:', response.status);
+                setMessages([{
+                    id: 'welcome',
+                    role: 'assistant',
+                    content: "Hey. How's your day?",
+                    timestamp: new Date().toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                }]);
             }
         } catch (error) {
             console.error('Error loading history:', error);
@@ -99,6 +112,7 @@ export default function ChatScreen() {
                 }),
             }]);
         } finally {
+            // ALWAYS stop loading
             setIsLoadingHistory(false);
         }
     };
