@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { API_URL, StorageKeys } from '../constants';
@@ -10,7 +10,6 @@ interface Task {
     title: string;
     description?: string;
     status: 'pending' | 'completed' | 'skipped' | 'snoozed';
-    scheduled_for?: string;
 }
 
 export default function TasksScreen() {
@@ -20,9 +19,7 @@ export default function TasksScreen() {
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [user, setUser] = useState<any>(null);
 
-    useEffect(() => {
-        loadUserAndTasks();
-    }, []);
+    useEffect(() => { loadUserAndTasks(); }, []);
 
     const loadUserAndTasks = async () => {
         try {
@@ -54,19 +51,15 @@ export default function TasksScreen() {
     const createTask = async () => {
         if (!newTaskTitle.trim() || !user?.id) return;
         haptics.success();
-
         try {
             const response = await fetch(`${API_URL}/tasks?user_id=${user.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: newTaskTitle.trim() }),
             });
-
             if (response.ok) {
                 const data = await response.json();
-                if (data.task) {
-                    setTasks(prev => [data.task, ...prev]);
-                }
+                if (data.task) setTasks(prev => [data.task, ...prev]);
                 setNewTaskTitle('');
                 setShowModal(false);
             }
@@ -77,12 +70,9 @@ export default function TasksScreen() {
 
     const updateTaskStatus = async (taskId: string, newStatus: 'completed' | 'skipped') => {
         if (!user?.id) return;
-
         if (newStatus === 'completed') haptics.success();
         else haptics.warning();
-
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-
         try {
             const task = tasks.find(t => t.id === taskId);
             await fetch(`${API_URL}/tasks/${taskId}?user_id=${user.id}`, {
@@ -98,147 +88,138 @@ export default function TasksScreen() {
     const activeTasks = tasks.filter(t => t.status === 'pending' || t.status === 'snoozed');
     const completedTasks = tasks.filter(t => t.status === 'completed');
     const skippedTasks = tasks.filter(t => t.status === 'skipped');
-
-    const today = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric'
-    });
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
     if (isLoading) {
-        return (
-            <View className="flex-1 bg-[#0a0a0b] items-center justify-center">
-                <ActivityIndicator size="large" color="#f59e0b" />
-            </View>
-        );
+        return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#f59e0b" /></View>;
     }
 
     return (
-        <View className="flex-1 bg-[#0a0a0b]">
-            <ScrollView className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
-                {/* Date */}
-                <Text className="text-sm text-zinc-500 mb-2">{today}</Text>
-
-                {/* Quote */}
-                <View className="flex-row items-center mb-8">
-                    <View className="w-1 h-5 bg-[#f59e0b] rounded-full mr-3" />
-                    <Text className="text-sm text-zinc-400 italic">"Consistency is quiet work."</Text>
+        <View style={styles.container}>
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <Text style={styles.date}>{today}</Text>
+                <View style={styles.quoteRow}>
+                    <View style={styles.quoteLine} />
+                    <Text style={styles.quote}>"Consistency is quiet work."</Text>
                 </View>
 
-                {/* Active Commitments */}
-                <View className="mb-8">
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-base font-semibold text-white">Active Commitments</Text>
-                        <View className="bg-[#18181b] px-3 py-1 rounded-full">
-                            <Text className="text-xs text-zinc-400">{activeTasks.length} remaining</Text>
-                        </View>
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Active Commitments</Text>
+                        <View style={styles.badge}><Text style={styles.badgeText}>{activeTasks.length} remaining</Text></View>
                     </View>
-
                     {activeTasks.length === 0 ? (
-                        <Text className="text-center text-zinc-500 py-8">No active commitments. Add one below!</Text>
+                        <Text style={styles.emptyText}>No active commitments. Add one below!</Text>
                     ) : (
-                        activeTasks.map(task => (
-                            <View key={task.id} className="flex-row items-center p-4 mb-2 bg-[#18181b] border border-white/5 rounded-2xl">
-                                <View className="w-9 h-9 bg-[#18181b] border border-white/10 rounded-xl items-center justify-center mr-3">
-                                    <Text className="text-zinc-400">○</Text>
+                        activeTasks.map((task, index) => (
+                            <Animated.View key={task.id} entering={FadeInDown.delay(index * 50)}>
+                                <View style={styles.taskCard}>
+                                    <View style={styles.taskIcon}><Text style={styles.taskIconText}>○</Text></View>
+                                    <Text style={styles.taskTitle}>{task.title}</Text>
+                                    <View style={styles.taskActions}>
+                                        <TouchableOpacity onPress={() => updateTaskStatus(task.id, 'completed')} style={styles.completeBtn}>
+                                            <Text style={styles.completeBtnText}>✓</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => updateTaskStatus(task.id, 'skipped')} style={styles.skipBtn}>
+                                            <Text style={styles.skipBtnText}>✕</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
-                                <Text className="flex-1 text-white text-[15px]">{task.title}</Text>
-                                <View className="flex-row gap-2">
-                                    <TouchableOpacity
-                                        onPress={() => updateTaskStatus(task.id, 'completed')}
-                                        className="w-8 h-8 bg-[#10b981]/10 border border-[#10b981]/30 rounded-lg items-center justify-center"
-                                    >
-                                        <Text className="text-[#10b981]">✓</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => updateTaskStatus(task.id, 'skipped')}
-                                        className="w-8 h-8 bg-red-500/10 border border-red-500/30 rounded-lg items-center justify-center"
-                                    >
-                                        <Text className="text-red-500">✕</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            </Animated.View>
                         ))
                     )}
                 </View>
 
-                {/* Completed */}
                 {completedTasks.length > 0 && (
-                    <View className="mb-8">
-                        <Text className="text-base font-semibold text-white mb-4">Completed ✓</Text>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Completed ✓</Text>
                         {completedTasks.map(task => (
-                            <View key={task.id} className="flex-row items-center p-4 mb-2 bg-[#18181b]/50 border border-white/5 rounded-2xl opacity-60">
-                                <View className="w-9 h-9 bg-[#10b981] rounded-xl items-center justify-center mr-3">
-                                    <Text className="text-white">✓</Text>
-                                </View>
-                                <Text className="flex-1 text-zinc-400 line-through text-[15px]">{task.title}</Text>
+                            <View key={task.id} style={[styles.taskCard, styles.completedCard]}>
+                                <View style={styles.completedIcon}><Text style={styles.completedIconText}>✓</Text></View>
+                                <Text style={styles.completedTitle}>{task.title}</Text>
                             </View>
                         ))}
                     </View>
                 )}
 
-                {/* Skipped */}
                 {skippedTasks.length > 0 && (
-                    <View className="mb-8">
-                        <Text className="text-base font-semibold text-white mb-4">Skipped</Text>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Skipped</Text>
                         {skippedTasks.map(task => (
-                            <View key={task.id} className="flex-row items-center p-4 mb-2 bg-red-500/5 border border-red-500/20 rounded-2xl opacity-50">
-                                <View className="w-9 h-9 bg-red-500/20 rounded-xl items-center justify-center mr-3">
-                                    <Text className="text-red-500">✕</Text>
-                                </View>
-                                <Text className="flex-1 text-zinc-400 line-through text-[15px]">{task.title}</Text>
+                            <View key={task.id} style={[styles.taskCard, styles.skippedCard]}>
+                                <View style={styles.skippedIcon}><Text style={styles.skippedIconText}>✕</Text></View>
+                                <Text style={styles.skippedTitle}>{task.title}</Text>
                             </View>
                         ))}
                     </View>
                 )}
             </ScrollView>
 
-            {/* FAB */}
-            <TouchableOpacity
-                onPress={() => {
-                    haptics.buttonTap();
-                    setShowModal(true);
-                }}
-                className="absolute bottom-6 right-6 w-14 h-14 bg-[#f59e0b] rounded-2xl items-center justify-center shadow-lg"
-                style={{ shadowColor: '#f59e0b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12 }}
-            >
-                <Text className="text-2xl text-black">+</Text>
+            <TouchableOpacity onPress={() => { haptics.buttonTap(); setShowModal(true); }} style={styles.fab}>
+                <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
 
-            {/* Add Task Modal */}
             <Modal visible={showModal} transparent animationType="fade">
-                <View className="flex-1 bg-black/60 justify-center px-6">
-                    <View className="bg-[#18181b] rounded-3xl p-6 border border-white/10">
-                        <Text className="text-xl font-bold text-white mb-4">New Commitment</Text>
-                        <TextInput
-                            value={newTaskTitle}
-                            onChangeText={setNewTaskTitle}
-                            placeholder="What will you commit to?"
-                            placeholderTextColor="#52525b"
-                            className="bg-[#0a0a0b] border border-white/10 rounded-2xl px-5 py-4 text-white text-[15px] mb-6"
-                            autoFocus
-                        />
-                        <View className="flex-row gap-3">
-                            <TouchableOpacity
-                                onPress={() => {
-                                    haptics.buttonTap();
-                                    setShowModal(false);
-                                    setNewTaskTitle('');
-                                }}
-                                className="flex-1 py-3 items-center"
-                            >
-                                <Text className="text-zinc-400 font-semibold">Cancel</Text>
+                <View style={styles.modalOverlay}>
+                    <Animated.View entering={FadeIn} style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>New Commitment</Text>
+                        <TextInput value={newTaskTitle} onChangeText={setNewTaskTitle} placeholder="What will you commit to?" placeholderTextColor="#52525b" style={styles.modalInput} autoFocus />
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity onPress={() => { haptics.buttonTap(); setShowModal(false); setNewTaskTitle(''); }} style={styles.cancelBtn}>
+                                <Text style={styles.cancelText}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={createTask}
-                                className="flex-1 bg-[#f59e0b] py-3 rounded-xl items-center"
-                            >
-                                <Text className="text-black font-bold">Add</Text>
+                            <TouchableOpacity onPress={createTask} style={styles.addBtn}>
+                                <Text style={styles.addText}>Add</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
+                    </Animated.View>
                 </View>
             </Modal>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#0a0a0b' },
+    loadingContainer: { flex: 1, backgroundColor: '#0a0a0b', alignItems: 'center', justifyContent: 'center' },
+    scrollView: { flex: 1, paddingHorizontal: 24 },
+    scrollContent: { paddingTop: 24, paddingBottom: 100 },
+    date: { fontSize: 14, color: '#71717a', marginBottom: 8 },
+    quoteRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
+    quoteLine: { width: 4, height: 20, backgroundColor: '#f59e0b', borderRadius: 2, marginRight: 12 },
+    quote: { fontSize: 14, color: '#a1a1aa', fontStyle: 'italic' },
+    section: { marginBottom: 32 },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    sectionTitle: { fontSize: 16, fontWeight: '600', color: '#fff' },
+    badge: { backgroundColor: '#18181b', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
+    badgeText: { fontSize: 12, color: '#a1a1aa' },
+    emptyText: { textAlign: 'center', color: '#71717a', paddingVertical: 32 },
+    taskCard: { flexDirection: 'row', alignItems: 'center', padding: 16, marginBottom: 8, backgroundColor: '#18181b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 16 },
+    taskIcon: { width: 36, height: 36, backgroundColor: '#18181b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    taskIconText: { color: '#a1a1aa' },
+    taskTitle: { flex: 1, color: '#fff', fontSize: 15 },
+    taskActions: { flexDirection: 'row', gap: 8 },
+    completeBtn: { width: 32, height: 32, backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    completeBtnText: { color: '#10b981' },
+    skipBtn: { width: 32, height: 32, backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    skipBtnText: { color: '#ef4444' },
+    completedCard: { backgroundColor: 'rgba(24,24,27,0.5)', opacity: 0.6 },
+    completedIcon: { width: 36, height: 36, backgroundColor: '#10b981', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    completedIconText: { color: '#fff' },
+    completedTitle: { flex: 1, color: '#a1a1aa', fontSize: 15, textDecorationLine: 'line-through' },
+    skippedCard: { backgroundColor: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.2)', opacity: 0.5 },
+    skippedIcon: { width: 36, height: 36, backgroundColor: 'rgba(239,68,68,0.2)', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    skippedIconText: { color: '#ef4444' },
+    skippedTitle: { flex: 1, color: '#a1a1aa', fontSize: 15, textDecorationLine: 'line-through' },
+    fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, backgroundColor: '#f59e0b', borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#f59e0b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+    fabText: { fontSize: 24, color: '#000' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 24 },
+    modalContent: { backgroundColor: '#18181b', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 16 },
+    modalInput: { backgroundColor: '#0a0a0b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, color: '#fff', fontSize: 15, marginBottom: 24 },
+    modalActions: { flexDirection: 'row', gap: 12 },
+    cancelBtn: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+    cancelText: { color: '#a1a1aa', fontWeight: '600' },
+    addBtn: { flex: 1, backgroundColor: '#f59e0b', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    addText: { color: '#000', fontWeight: 'bold' },
+});
