@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { API_URL, StorageKeys } from '../constants';
 import { haptics } from '../utils/haptics';
 

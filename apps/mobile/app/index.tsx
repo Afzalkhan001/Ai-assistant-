@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import { API_URL, StorageKeys } from '../constants';
 import { haptics } from '../utils/haptics';
 
@@ -190,56 +192,58 @@ export default function ChatScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             className="flex-1 bg-[#0a0a0b]"
         >
-            {/* Header */}
-            <View className="pt-12 pb-4 px-6 border-b border-white/5 bg-[#0a0a0b]">
-                <View className="flex-row justify-between items-center mb-3">
-                    <View className="flex-row items-center gap-3">
-                        <View className="relative">
-                            <Image
-                                source={require('../assets/images/icon.png')}
-                                className="w-9 h-9 rounded-full"
-                                style={{ shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 15 }}
-                            />
-                            <View className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#10b981] border-2 border-[#0a0a0b] rounded-full" />
-                        </View>
-                        <View>
-                            <Text className="text-base font-bold text-white tracking-wider">AERA</Text>
-                            <Text className="text-[10px] text-zinc-500 font-medium tracking-widest uppercase">
-                                {getToneLabel(toneMode)}
-                            </Text>
-                        </View>
-                    </View>
-                    <TouchableOpacity className="w-8 h-8 rounded-full bg-white/5 items-center justify-center">
-                        <Text className="text-sm text-white/50">⋮</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Tone Mode Selector */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-1">
-                    <View className="flex-row gap-2">
-                        {[
-                            { id: 'soft', label: 'Gentle' },
-                            { id: 'balanced', label: 'Balanced' },
-                            { id: 'strict_clean', label: 'Direct' },
-                            { id: 'strict_raw', label: 'Raw' }
-                        ].map(mode => (
-                            <TouchableOpacity
-                                key={mode.id}
-                                onPress={() => handleToneChange(mode.id as any)}
-                                className={`px-4 py-1.5 rounded-full border ${toneMode === mode.id
-                                    ? 'bg-[#f59e0b]/15 border-[#f59e0b]/30'
-                                    : 'bg-transparent border-white/5'
-                                    }`}
-                            >
-                                <Text className={`text-[11px] font-semibold tracking-wider uppercase ${toneMode === mode.id ? 'text-[#f59e0b]' : 'text-zinc-500'
-                                    }`}>
-                                    {mode.label}
+            {/* Header with Blur */}
+            <BlurView intensity={80} tint="dark" className="pt-12 pb-4 px-6 border-b border-white/5">
+                <Animated.View entering={FadeIn.duration(300)}>
+                    <View className="flex-row justify-between items-center mb-3">
+                        <View className="flex-row items-center gap-3">
+                            <View className="relative">
+                                <Image
+                                    source={require('../assets/images/icon.png')}
+                                    className="w-9 h-9 rounded-full"
+                                    style={{ shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 15 }}
+                                />
+                                <View className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#10b981] border-2 border-[#0a0a0b] rounded-full" />
+                            </View>
+                            <View>
+                                <Text className="text-base font-bold text-white tracking-wider">AERA</Text>
+                                <Text className="text-[10px] text-zinc-500 font-medium tracking-widest uppercase">
+                                    {getToneLabel(toneMode)}
                                 </Text>
-                            </TouchableOpacity>
-                        ))}
+                            </View>
+                        </View>
+                        <TouchableOpacity className="w-8 h-8 rounded-full bg-white/5 items-center justify-center">
+                            <Text className="text-sm text-white/50">⋮</Text>
+                        </TouchableOpacity>
                     </View>
-                </ScrollView>
-            </View>
+
+                    {/* Tone Mode Selector */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-1">
+                        <View className="flex-row gap-2">
+                            {[
+                                { id: 'soft', label: 'Gentle' },
+                                { id: 'balanced', label: 'Balanced' },
+                                { id: 'strict_clean', label: 'Direct' },
+                                { id: 'strict_raw', label: 'Raw' }
+                            ].map(mode => (
+                                <TouchableOpacity
+                                    key={mode.id}
+                                    onPress={() => handleToneChange(mode.id as any)}
+                                    className={`px-4 py-1.5 rounded-full border ${toneMode === mode.id
+                                            ? 'bg-[#f59e0b]/15 border-[#f59e0b]/30'
+                                            : 'bg-transparent border-white/5'
+                                        }`}
+                                >
+                                    <Text className={`text-[11px] font-semibold tracking-wider uppercase ${toneMode === mode.id ? 'text-[#f59e0b]' : 'text-zinc-500'
+                                        }`}>
+                                        {mode.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </ScrollView>
+                </Animated.View>
+            </BlurView>
 
             {/* Messages */}
             <ScrollView
@@ -253,17 +257,21 @@ export default function ChatScreen() {
                     </View>
                 ) : (
                     <>
-                        <View className="items-center mb-6">
+                        <Animated.View entering={FadeIn.delay(100)} className="items-center mb-6">
                             <View className="bg-white/[0.03] px-4 py-1.5 rounded-full border border-white/[0.05]">
                                 <Text className="text-[10px] font-bold tracking-widest text-zinc-500">CONVERSATION</Text>
                             </View>
-                        </View>
+                        </Animated.View>
 
-                        {messages.map((msg) => (
-                            <View key={msg.id} className={`flex ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        {messages.map((msg, index) => (
+                            <Animated.View
+                                key={msg.id}
+                                entering={FadeInDown.delay(index * 50).springify()}
+                                className={`flex ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                            >
                                 <View className={`max-w-[85%] px-5 py-3.5 border shadow-lg ${msg.role === 'user'
-                                    ? 'bg-white/10 border-white/10 rounded-3xl rounded-br-sm'
-                                    : 'bg-[#18181b]/60 border-white/[0.05] rounded-3xl rounded-bl-sm'
+                                        ? 'bg-white/10 border-white/10 rounded-3xl rounded-br-sm'
+                                        : 'bg-[#18181b]/60 border-white/[0.05] rounded-3xl rounded-bl-sm'
                                     }`}>
                                     <Text className={`text-[15px] leading-relaxed font-light ${msg.role === 'user' ? 'text-white/95' : 'text-zinc-200'
                                         }`}>
@@ -273,26 +281,26 @@ export default function ChatScreen() {
                                 <Text className="text-[10px] text-zinc-600 mt-2 px-1 font-medium opacity-60">
                                     {msg.timestamp}
                                 </Text>
-                            </View>
+                            </Animated.View>
                         ))}
 
                         {isLoading && (
-                            <View className="items-start">
+                            <Animated.View entering={FadeIn} className="items-start">
                                 <View className="bg-[#18181b]/60 border border-white/[0.05] px-5 py-3.5 rounded-3xl rounded-bl-sm">
                                     <View className="flex-row gap-1.5">
-                                        <View className="w-2 h-2 bg-[#f59e0b] rounded-full opacity-30" />
-                                        <View className="w-2 h-2 bg-[#f59e0b] rounded-full opacity-60" />
-                                        <View className="w-2 h-2 bg-[#f59e0b] rounded-full" />
+                                        <Animated.View className="w-2 h-2 bg-[#f59e0b] rounded-full opacity-30" />
+                                        <Animated.View className="w-2 h-2 bg-[#f59e0b] rounded-full opacity-60" />
+                                        <Animated.View className="w-2 h-2 bg-[#f59e0b] rounded-full" />
                                     </View>
                                 </View>
-                            </View>
+                            </Animated.View>
                         )}
                     </>
                 )}
             </ScrollView>
 
             {/* Input */}
-            <View className="px-4 pb-6 pt-3 bg-[#0a0a0b] border-t border-white/5">
+            <BlurView intensity={80} tint="dark" className="px-4 pb-6 pt-3 border-t border-white/5">
                 <View className="flex-row items-center gap-3 bg-[#18181b] border border-white/10 rounded-2xl px-5 py-2">
                     <TextInput
                         value={input}
@@ -314,7 +322,7 @@ export default function ChatScreen() {
                         <Text className={input.trim() && !isLoading ? 'text-black' : 'text-zinc-600'}>↑</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </BlurView>
         </KeyboardAvoidingView>
     );
 }

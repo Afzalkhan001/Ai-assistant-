@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { API_URL, StorageKeys } from '../constants';
 import { haptics } from '../utils/haptics';
 
@@ -36,7 +39,6 @@ export default function LoginScreen() {
 
             const data = await response.json();
 
-            // Store session
             await AsyncStorage.setItem(StorageKeys.ACCESS_TOKEN, data.session.access_token);
             await AsyncStorage.setItem(StorageKeys.USER, JSON.stringify(data.user));
 
@@ -61,74 +63,101 @@ export default function LoginScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             className="flex-1 bg-[#0a0a0b]"
         >
-            <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
-                {/* Ambient glow effects - simulated with views */}
-                <View className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-[#f59e0b] opacity-[0.04] blur-3xl rounded-full" />
-                <View className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-[#14b8a6] opacity-[0.03] blur-3xl rounded-full" />
+            {/* Ambient glow effects */}
+            <View className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] opacity-[0.04]">
+                <LinearGradient
+                    colors={['#f59e0b', 'transparent']}
+                    style={{ width: '100%', height: '100%', borderRadius: 9999 }}
+                />
+            </View>
+            <View className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] opacity-[0.03]">
+                <LinearGradient
+                    colors={['#14b8a6', 'transparent']}
+                    style={{ width: '100%', height: '100%', borderRadius: 9999 }}
+                />
+            </View>
 
+            <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
                 {/* Logo/Header */}
-                <View className="items-center mb-12">
-                    <View className="w-16 h-16 rounded-full bg-gradient-to-tr from-[#f59e0b] to-[#d97706] items-center justify-center mb-4">
+                <Animated.View entering={ZoomIn.springify()} className="items-center mb-12">
+                    <LinearGradient
+                        colors={['#f59e0b', '#d97706']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        className="w-16 h-16 rounded-full items-center justify-center mb-4"
+                    >
                         <Text className="text-3xl">✨</Text>
-                    </View>
+                    </LinearGradient>
                     <Text className="text-3xl font-bold text-white mb-2">Welcome Back</Text>
                     <Text className="text-zinc-500">Your accountability companion</Text>
-                </View>
+                </Animated.View>
 
                 {/* Login Form */}
-                <View className="bg-[#18181b]/50 border border-white/10 rounded-3xl p-8">
-                    {error && (
-                        <View className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 mb-6">
-                            <Text className="text-red-400 text-sm">{error}</Text>
+                <Animated.View entering={FadeIn.delay(200)}>
+                    <BlurView intensity={20} tint="dark" className="rounded-3xl overflow-hidden">
+                        <View className="bg-[#18181b]/50 border border-white/10 p-8">
+                            {error && (
+                                <Animated.View entering={FadeIn} className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 mb-6">
+                                    <Text className="text-red-400 text-sm">{error}</Text>
+                                </Animated.View>
+                            )}
+
+                            <View className="mb-6">
+                                <Text className="text-sm font-medium text-zinc-400 mb-2">Email</Text>
+                                <TextInput
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    placeholder="you@example.com"
+                                    placeholderTextColor="#52525b"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-2xl px-4 py-3 text-white text-[15px]"
+                                />
+                            </View>
+
+                            <View className="mb-6">
+                                <Text className="text-sm font-medium text-zinc-400 mb-2">Password</Text>
+                                <TextInput
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    placeholder="••••••••"
+                                    placeholderTextColor="#52525b"
+                                    secureTextEntry
+                                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-2xl px-4 py-3 text-white text-[15px]"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={handleLogin}
+                                disabled={loading}
+                                activeOpacity={0.8}
+                                className={`w-full rounded-2xl overflow-hidden ${loading ? 'opacity-50' : ''}`}
+                            >
+                                <LinearGradient
+                                    colors={['#f59e0b', '#d97706']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    className="py-3 px-6 items-center"
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#000" />
+                                    ) : (
+                                        <Text className="text-black font-semibold text-base">Log In</Text>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <View className="items-center mt-6">
+                                <Text className="text-sm text-zinc-500">
+                                    Don't have an account?{' '}
+                                    <Link href="/signup" className="text-[#f59e0b] font-medium">
+                                        Sign up
+                                    </Link>
+                                </Text>
+                            </View>
                         </View>
-                    )}
-
-                    <View className="mb-6">
-                        <Text className="text-sm font-medium text-zinc-400 mb-2">Email</Text>
-                        <TextInput
-                            value={email}
-                            onChangeText={setEmail}
-                            placeholder="you@example.com"
-                            placeholderTextColor="#52525b"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            className="w-full bg-[#0a0a0b] border border-white/10 rounded-2xl px-4 py-3 text-white text-[15px]"
-                        />
-                    </View>
-
-                    <View className="mb-6">
-                        <Text className="text-sm font-medium text-zinc-400 mb-2">Password</Text>
-                        <TextInput
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="••••••••"
-                            placeholderTextColor="#52525b"
-                            secureTextEntry
-                            className="w-full bg-[#0a0a0b] border border-white/10 rounded-2xl px-4 py-3 text-white text-[15px]"
-                        />
-                    </View>
-
-                    <TouchableOpacity
-                        onPress={handleLogin}
-                        disabled={loading}
-                        className={`w-full bg-[#f59e0b] rounded-2xl py-3 px-6 items-center ${loading ? 'opacity-50' : ''}`}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#000" />
-                        ) : (
-                            <Text className="text-black font-semibold text-base">Log In</Text>
-                        )}
-                    </TouchableOpacity>
-
-                    <View className="items-center mt-6">
-                        <Text className="text-sm text-zinc-500">
-                            Don't have an account?{' '}
-                            <Link href="/signup" className="text-[#f59e0b] font-medium">
-                                Sign up
-                            </Link>
-                        </Text>
-                    </View>
-                </View>
+                    </BlurView>
+                </Animated.View>
             </ScrollView>
         </KeyboardAvoidingView>
     );
