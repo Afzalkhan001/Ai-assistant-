@@ -43,8 +43,8 @@ export default function LoginScreen() {
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-            <View style={styles.glowTop}><LinearGradient colors={['#f59e0b', 'transparent']} style={styles.glow} /></View>
-            <View style={styles.glowBottom}><LinearGradient colors={['#14b8a6', 'transparent']} style={styles.glow} /></View>
+            <View style={styles.glowTop} />
+            <View style={styles.glowBottom} />
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Animated.View entering={ZoomIn.springify()} style={styles.logoContainer}>
@@ -87,9 +87,8 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0a0a0b' },
     scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-    glowTop: { position: 'absolute', top: -100, left: -50, width: 400, height: 400, opacity: 0.04 },
-    glowBottom: { position: 'absolute', bottom: -50, right: -50, width: 300, height: 300, opacity: 0.03 },
-    glow: { width: '100%', height: '100%', borderRadius: 200 },
+    glowTop: { position: 'absolute', top: -100, left: -50, width: 400, height: 400, backgroundColor: '#f59e0b', opacity: 0.04, borderRadius: 200 },
+    glowBottom: { position: 'absolute', bottom: -50, right: -50, width: 300, height: 300, backgroundColor: '#14b8a6', opacity: 0.03, borderRadius: 150 },
     logoContainer: { alignItems: 'center', marginBottom: 48 },
     logoGradient: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
     logoIcon: { fontSize: 28 },
