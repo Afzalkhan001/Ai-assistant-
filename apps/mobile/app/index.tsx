@@ -169,11 +169,11 @@ export default function ChatScreen() {
                 <View style={styles.headerBorder} />
             </View>
 
-            {/* Messages */}
+            {/* Messages - add bottom padding for input + tab bar */}
             <ScrollView
                 ref={scrollViewRef}
                 style={styles.messagesContainer}
-                contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight + 20, paddingBottom: 20 }]}
+                contentContainerStyle={[styles.messagesContent, { paddingTop: headerHeight + 20, paddingBottom: 140 }]}
             >
                 {isLoadingHistory ? (
                     <View style={styles.loadingContainer}>
@@ -223,8 +223,8 @@ export default function ChatScreen() {
                 )}
             </ScrollView>
 
-            {/* Input with Blur */}
-            <BlurView intensity={80} tint="dark" style={[styles.inputContainer, { paddingBottom: insets.bottom + 12 }]}>
+            {/* Input with Blur - positioned above floating tab bar */}
+            <BlurView intensity={80} tint="dark" style={[styles.inputContainer, { marginBottom: 100, paddingBottom: 12 }]}>
                 <View style={styles.inputBorder} />
                 <View style={styles.inputRow}>
                     <TextInput value={input} onChangeText={setInput} placeholder="Message AERA..." placeholderTextColor="#52525b" onSubmitEditing={sendMessage} editable={!isLoading} style={styles.input} multiline maxLength={500} />
