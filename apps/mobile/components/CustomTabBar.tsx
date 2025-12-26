@@ -1,24 +1,35 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
+// Define exactly which tabs to show and their configuration
+const TABS = [
+    { name: 'index', icon: 'chatbubble', label: 'Chat' },
+    { name: 'tasks', icon: 'flash', label: 'Flow' },
+    { name: 'checkin', icon: 'sunny', label: 'Check-in' },
+    { name: 'settings', icon: 'settings', label: 'Settings' },
+];
+
 export default function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+    const insets = useSafeAreaInsets();
+
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }]}>
             <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
                 <View style={styles.contentContainer}>
-                    {state.routes.map((route, index) => {
-                        const { options } = descriptors[route.key];
-                        // Filter out hidden routes (login, signup)
-                        if (options.href === null) return null;
+                    {TABS.map((tab) => {
+                        // Find the matching route index
+                        const routeIndex = state.routes.findIndex(r => r.name === tab.name);
+                        if (routeIndex === -1) return null;
 
-                        const isFocused = state.index === index;
+                        const route = state.routes[routeIndex];
+                        const isFocused = state.index === routeIndex;
 
                         const onPress = () => {
                             const event = navigation.emit({
@@ -32,39 +43,40 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
                             }
                         };
 
-                        const iconName =
-                            route.name === 'index' ? 'chatbubble' :
-                                route.name === 'tasks' ? 'flash' :
-                                    route.name === 'checkin' ? 'sunny' :
-                                        'settings';
-
                         return (
                             <TouchableOpacity
-                                key={route.key}
+                                key={tab.name}
                                 onPress={onPress}
                                 style={styles.tabItem}
                                 activeOpacity={0.7}
                             >
                                 <View style={[styles.iconContainer, isFocused && styles.iconContainerActive]}>
-                                    {isFocused && (
+                                    {isFocused ? (
                                         <LinearGradient
                                             colors={['#f59e0b', '#d97706']}
-                                            style={StyleSheet.absoluteFill}
+                                            style={styles.iconGradient}
                                             start={{ x: 0, y: 0 }}
                                             end={{ x: 1, y: 1 }}
-                                        />
+                                        >
+                                            <Ionicons
+                                                name={tab.icon as any}
+                                                size={22}
+                                                color="#fff"
+                                            />
+                                        </LinearGradient>
+                                    ) : (
+                                        <View style={styles.iconInner}>
+                                            <Ionicons
+                                                name={tab.icon as any}
+                                                size={22}
+                                                color="#71717a"
+                                            />
+                                        </View>
                                     )}
-                                    <View style={[styles.iconInner, isFocused && { backgroundColor: 'transparent' }]}>
-                                        <Ionicons
-                                            name={iconName as any}
-                                            size={20}
-                                            color={isFocused ? '#fff' : '#71717a'}
-                                        />
-                                    </View>
                                 </View>
-                                {isFocused && (
-                                    <Text style={styles.label}>{options.title}</Text>
-                                )}
+                                <Text style={[styles.label, isFocused && styles.labelActive]}>
+                                    {tab.label}
+                                </Text>
                             </TouchableOpacity>
                         );
                     })}
@@ -77,41 +89,39 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        bottom: 24,
-        alignSelf: 'center',
-        width: width - 48,
-        borderRadius: 32,
+        left: 24,
+        right: 24,
+        borderRadius: 28,
         overflow: 'hidden',
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 10,
-        },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 10,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     blurContainer: {
         width: '100%',
-        backgroundColor: 'rgba(20,20,23,0.7)',
+        backgroundColor: 'rgba(15,15,18,0.85)',
     },
     contentContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'space-around',
         alignItems: 'center',
-        paddingHorizontal: 12, // Reduced padding to fit labels
-        paddingVertical: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
     },
     tabItem: {
         alignItems: 'center',
         justifyContent: 'center',
-        flex: 1, // Distribute space evenly
-        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
     },
     iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'rgba(255,255,255,0.03)',
@@ -120,25 +130,37 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     iconContainerActive: {
-        borderColor: 'rgba(245,158,11,0.5)',
+        borderColor: 'rgba(245,158,11,0.4)',
         shadowColor: "#f59e0b",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        transform: [{ translateY: -4 }], // 3D pop effect
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 8,
+        transform: [{ scale: 1.05 }],
+    },
+    iconGradient: {
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 24,
     },
     iconInner: {
         width: '100%',
         height: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 22,
+        borderRadius: 24,
     },
     label: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontWeight: '600',
+        color: '#52525b',
+        marginTop: 6,
+        letterSpacing: 0.3,
+    },
+    labelActive: {
         color: '#f59e0b',
-        marginTop: 4,
-        letterSpacing: 0.5,
+        fontWeight: '700',
     },
 });
