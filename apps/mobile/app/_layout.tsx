@@ -3,8 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Colors } from '../constants';
 import CustomTabBar from '../components/CustomTabBar';
+import { NavVisibilityProvider } from '../contexts/NavVisibilityContext';
 
-export default function TabLayout() {
+function TabNavigator() {
     const router = useRouter();
 
     return (
@@ -25,14 +26,14 @@ export default function TabLayout() {
                     letterSpacing: 0.5,
                 },
                 tabBarHideOnKeyboard: true,
-                headerShown: false, // We use custom headers in screens usually, or simple ones here
+                headerShown: false,
             }}
         >
             <Tabs.Screen
                 name="index"
                 options={{
                     title: 'Chat',
-                    headerShown: false, // Chat has its own absolute header
+                    headerShown: false,
                 }}
             />
             <Tabs.Screen
@@ -75,6 +76,14 @@ export default function TabLayout() {
                 }}
             />
         </Tabs>
+    );
+}
+
+export default function TabLayout() {
+    return (
+        <NavVisibilityProvider>
+            <TabNavigator />
+        </NavVisibilityProvider>
     );
 }
 

@@ -5,10 +5,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+    useAnimatedStyle,
+    withTiming,
+    withSpring,
+    interpolate,
+    Extrapolation,
+    useSharedValue,
+    useEffect as useReanimatedEffect
+} from 'react-native-reanimated';
+import { useNavVisibility } from '../contexts/NavVisibilityContext';
+import { haptics } from '../utils/haptics';
 
 const { width } = Dimensions.get('window');
 
-// Define exactly which tabs to show and their configuration
+// Define exactly which tabs to show
 const TABS = [
     { name: 'index', icon: 'chatbubble', label: 'Chat' },
     { name: 'tasks', icon: 'flash', label: 'Flow' },
@@ -16,15 +27,53 @@ const TABS = [
     { name: 'settings', icon: 'settings', label: 'Settings' },
 ];
 
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
+
 export default function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
+    const { isVisible } = useNavVisibility();
+
+    // Animation value for visibility
+    const visibilityAnim = useSharedValue(isVisible ? 1 : 0);
+
+    // Update animation when visibility changes
+    React.useEffect(() => {
+        visibilityAnim.value = withSpring(isVisible ? 1 : 0, {
+            damping: 20,
+            stiffness: 300,
+        });
+    }, [isVisible]);
+
+    // Animated styles for the container
+    const animatedContainerStyle = useAnimatedStyle(() => {
+        return {
+            opacity: visibilityAnim.value,
+            transform: [
+                {
+                    translateY: interpolate(
+                        visibilityAnim.value,
+                        [0, 1],
+                        [100, 0],
+                        Extrapolation.CLAMP
+                    )
+                },
+                {
+                    scale: interpolate(
+                        visibilityAnim.value,
+                        [0, 1],
+                        [0.9, 1],
+                        Extrapolation.CLAMP
+                    )
+                }
+            ],
+        };
+    });
 
     return (
-        <View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }]}>
+        <Animated.View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }, animatedContainerStyle]}>
             <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
                 <View style={styles.contentContainer}>
                     {TABS.map((tab) => {
-                        // Find the matching route index
                         const routeIndex = state.routes.findIndex(r => r.name === tab.name);
                         if (routeIndex === -1) return null;
 
@@ -32,6 +81,8 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
                         const isFocused = state.index === routeIndex;
 
                         const onPress = () => {
+                            haptics.selectionChanged();
+
                             const event = navigation.emit({
                                 type: 'tabPress',
                                 target: route.key,
@@ -50,7 +101,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
                                 style={styles.tabItem}
                                 activeOpacity={0.7}
                             >
-                                <View style={[styles.iconContainer, isFocused && styles.iconContainerActive]}>
+                                <Animated.View style={[styles.iconContainer, isFocused && styles.iconContainerActive]}>
                                     {isFocused ? (
                                         <LinearGradient
                                             colors={['#f59e0b', '#d97706']}
@@ -73,7 +124,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
                                             />
                                         </View>
                                     )}
-                                </View>
+                                </Animated.View>
                                 <Text style={[styles.label, isFocused && styles.labelActive]}>
                                     {tab.label}
                                 </Text>
@@ -82,7 +133,7 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
                     })}
                 </View>
             </BlurView>
-        </View>
+        </Animated.View>
     );
 }
 
