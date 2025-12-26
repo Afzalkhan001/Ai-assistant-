@@ -76,19 +76,23 @@ export default function ChatScreen() {
                         timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     })));
                 } else {
+                    // No messages - start fresh
                     setMessages([{ id: 'welcome', role: 'assistant', content: "Hey. How's your day?", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
                 }
             } else {
-                throw new Error('API Error');
+                // API error but still functional - just start fresh (don't show error)
+                console.log('Messages API returned non-OK, starting fresh conversation');
+                setMessages([{ id: 'welcome', role: 'assistant', content: "Hey. How's your day?", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
             }
         } catch (error) {
-            console.error(error);
-            setConnectionError(true);
-            setMessages([{ id: 'welcome', role: 'assistant', content: "Hey. How's your day? (Offline mode)", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+            // Network error - start fresh, don't show error banner (chat still works)
+            console.log('Could not load history, starting fresh:', error);
+            setMessages([{ id: 'welcome', role: 'assistant', content: "Hey. How's your day?", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
         } finally {
             setIsLoadingHistory(false);
         }
     };
+
 
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
