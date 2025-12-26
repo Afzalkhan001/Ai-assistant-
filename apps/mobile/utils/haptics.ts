@@ -1,129 +1,230 @@
 import * as Haptics from 'expo-haptics';
 
 /**
- * AERA Modern Haptics System (2025)
+ * AERA Premium Haptics System
  * 
- * Design Principles:
- * - Purposeful: Confirm actions, not distract
- * - Synchronized: Aligned with animations
- * - Subtle: Light patterns preferred
- * - Contextual: Different patterns for different contexts
+ * Philosophy: Haptics are body language, not decoration.
+ * Every haptic must answer: "Why did this happen?"
+ * 
+ * Rules:
+ * - Never vibrate for every button
+ * - Never vibrate repetitively  
+ * - Never vibrate during typing
+ * - Fewer haptics = higher perceived quality
  */
 
-export const haptics = {
-    // === BASIC PATTERNS ===
+type ToneMode = 'soft' | 'balanced' | 'strict_clean' | 'strict_raw';
 
-    /** Ultra-light feedback for selections */
-    selection: () => {
-        Haptics.selectionAsync();
-    },
+// Current tone mode - should be synced with app state
+let currentToneMode: ToneMode = 'balanced';
 
-    /** Light tap for subtle UI interactions */
-    light: () => {
+/**
+ * Set the current tone mode for haptic filtering
+ */
+export function setHapticToneMode(mode: ToneMode) {
+    currentToneMode = mode;
+}
+
+/**
+ * Check if a haptic intensity is allowed for current tone
+ */
+function isAllowed(intensity: 'light' | 'medium' | 'heavy' | 'notification'): boolean {
+    switch (currentToneMode) {
+        case 'soft':
+            // Gentle: Only Selection or Light Impact
+            return intensity === 'light';
+        case 'balanced':
+            // Balanced: Selection + Light + Medium allowed
+            return intensity !== 'heavy';
+        case 'strict_clean':
+        case 'strict_raw':
+            // Direct/Raw: All allowed
+            return true;
+        default:
+            return true;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEMANTIC HAPTIC PATTERNS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Selection Feedback
+ * Meaning: "A choice changed"
+ * Use for: Sliders, pickers, tone mode change, tab selection
+ */
+export function selection() {
+    Haptics.selectionAsync();
+}
+
+/**
+ * Light Impact
+ * Meaning: "UI reacted softly"
+ * Use for: Navigation, screen focus, gentle acknowledgment
+ */
+export function lightImpact() {
+    if (isAllowed('light')) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    },
+    }
+}
 
-    /** Medium impact for confirmations */
-    medium: () => {
+/**
+ * Medium Impact
+ * Meaning: "Intent confirmed"
+ * Use for: Mode changes, commitments, confirmations
+ */
+export function mediumImpact() {
+    if (isAllowed('medium')) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    },
+    }
+}
 
-    /** Soft thud for background events */
-    soft: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    },
-
-    /** Sharp snap for threshold events */
-    rigid: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    },
-
-    /** Heavy impact - use sparingly! */
-    heavy: () => {
+/**
+ * Heavy Impact
+ * Meaning: "This matters"
+ * Use for: Accountability, serious actions (use sparingly)
+ */
+export function heavyImpact() {
+    if (isAllowed('heavy')) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    },
+    }
+}
 
-    // === NOTIFICATION PATTERNS ===
-
-    success: () => {
+/**
+ * Success Notification
+ * Meaning: "Completed / closed / resolved"
+ * Use for: Message sent, task complete, check-in submitted
+ */
+export function success() {
+    if (isAllowed('notification')) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
+    }
+}
 
-    warning: () => {
+/**
+ * Warning Notification  
+ * Meaning: "Attention needed"
+ * Use for: Skipped actions, connection issues
+ */
+export function warning() {
+    if (isAllowed('notification')) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    },
+    }
+}
 
-    error: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    },
+/**
+ * Error Notification
+ * Meaning: "Something failed"
+ * Use for: Real failures only
+ */
+export function error() {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+}
 
-    // === CONTEXTUAL PATTERNS ===
+// ═══════════════════════════════════════════════════════════════
+// COMPOUND PATTERNS (Max 2 steps, 100ms delay)
+// ═══════════════════════════════════════════════════════════════
 
-    /** Button tap - light and quick */
-    buttonTap: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    },
+/**
+ * Soft Confirmation: Selection → Light
+ * Use for: Gentle acknowledgment with choice
+ */
+export async function softConfirmation() {
+    selection();
+    await delay(100);
+    lightImpact();
+}
 
-    /** Tab or option selection changed */
-    selectionChanged: () => {
-        Haptics.selectionAsync();
-    },
+/**
+ * Grounded Arrival: Medium → Selection
+ * Use for: Entering important screens
+ */
+export async function groundedArrival() {
+    if (isAllowed('medium')) {
+        mediumImpact();
+        await delay(100);
+        selection();
+    } else {
+        lightImpact();
+    }
+}
 
-    /** Message sent by user */
-    messageSent: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    },
+/**
+ * Serious Attention: Heavy → Medium
+ * Use for: Accountability moments (Raw mode only)
+ */
+export async function seriousAttention() {
+    if (currentToneMode === 'strict_raw' && isAllowed('heavy')) {
+        heavyImpact();
+        await delay(100);
+        mediumImpact();
+    } else if (isAllowed('medium')) {
+        mediumImpact();
+    }
+}
 
-    /** Message received from AI */
-    messageReceived: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    },
+// ═══════════════════════════════════════════════════════════════
+// CONTEXTUAL HAPTIC TRIGGERS
+// ═══════════════════════════════════════════════════════════════
 
-    // === NAVIGATION PATTERNS ===
+export const haptics = {
+    // Tone mode
+    setToneMode: setHapticToneMode,
 
-    /** Nav bar appears */
-    navAppear: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    },
+    // Basic patterns
+    selection,
+    lightImpact,
+    mediumImpact,
+    heavyImpact,
+    success,
+    warning,
+    error,
 
-    /** Nav bar hides */
-    navHide: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    },
+    // Compound patterns
+    softConfirmation,
+    groundedArrival,
+    seriousAttention,
 
-    // === AI INTERACTION PATTERNS ===
+    // === Contextual triggers ===
 
-    /** AI starts typing/thinking */
-    aiTypingStart: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    },
+    /** Tab navigation changed */
+    tabChanged: () => selection(),
 
-    /** First word of AI response appears */
-    aiFirstWord: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    },
+    /** Tone mode selector changed */
+    toneChanged: () => selection(),
 
-    /** AI response complete */
-    aiResponseComplete: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    },
+    /** Message sent successfully */
+    messageSent: () => success(),
 
-    // === GESTURE PATTERNS ===
+    /** AI response received */
+    messageReceived: () => lightImpact(),
 
-    /** Pull-to-refresh threshold reached */
-    pullThreshold: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    },
+    /** Screen focused/entered */
+    screenEntered: () => lightImpact(),
 
-    /** Long press activated */
-    longPress: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    },
+    /** Nav bar appeared */
+    navAppeared: () => lightImpact(),
 
-    /** Swipe gesture detected */
-    swipe: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    },
+    /** Attachment selected */
+    attachmentSelected: () => selection(),
+
+    /** Task completed */
+    taskCompleted: () => mediumImpact(),
+
+    /** Check-in submitted */
+    checkinSubmitted: () => success(),
+
+    /** Connection error */
+    connectionError: () => warning(),
+
+    /** Operation failed */
+    operationFailed: () => error(),
 };
+
+// Utility
+function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 export default haptics;

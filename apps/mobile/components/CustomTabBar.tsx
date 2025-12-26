@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,19 +7,15 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     useAnimatedStyle,
-    withTiming,
     withSpring,
+    useSharedValue,
     interpolate,
     Extrapolation,
-    useSharedValue,
-    useEffect as useReanimatedEffect
 } from 'react-native-reanimated';
 import { useNavVisibility } from '../contexts/NavVisibilityContext';
 import { haptics } from '../utils/haptics';
 
-const { width } = Dimensions.get('window');
-
-// Define exactly which tabs to show
+// Tab configuration
 const TABS = [
     { name: 'index', icon: 'chatbubble', label: 'Chat' },
     { name: 'tasks', icon: 'flash', label: 'Flow' },
@@ -27,52 +23,43 @@ const TABS = [
     { name: 'settings', icon: 'settings', label: 'Settings' },
 ];
 
-const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
-
 export default function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
-    const { isVisible } = useNavVisibility();
+    const { isVisible, showNav } = useNavVisibility();
 
-    // Animation value for visibility
-    const visibilityAnim = useSharedValue(isVisible ? 1 : 0);
+    // Smooth visibility animation
+    const visibility = useSharedValue(1);
 
-    // Update animation when visibility changes
-    React.useEffect(() => {
-        visibilityAnim.value = withSpring(isVisible ? 1 : 0, {
-            damping: 20,
-            stiffness: 300,
+    useEffect(() => {
+        visibility.value = withSpring(isVisible ? 1 : 0, {
+            damping: 25,
+            stiffness: 200,
+            mass: 0.8,
         });
     }, [isVisible]);
 
-    // Animated styles for the container
-    const animatedContainerStyle = useAnimatedStyle(() => {
-        return {
-            opacity: visibilityAnim.value,
-            transform: [
-                {
-                    translateY: interpolate(
-                        visibilityAnim.value,
-                        [0, 1],
-                        [100, 0],
-                        Extrapolation.CLAMP
-                    )
-                },
-                {
-                    scale: interpolate(
-                        visibilityAnim.value,
-                        [0, 1],
-                        [0.9, 1],
-                        Extrapolation.CLAMP
-                    )
-                }
-            ],
-        };
-    });
+    const containerStyle = useAnimatedStyle(() => ({
+        opacity: visibility.value,
+        transform: [
+            {
+                translateY: interpolate(
+                    visibility.value,
+                    [0, 1],
+                    [80, 0],
+                    Extrapolation.CLAMP
+                )
+            },
+        ],
+    }));
 
     return (
-        <Animated.View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }, animatedContainerStyle]}>
-            <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
-                <View style={styles.contentContainer}>
+        <Animated.View style={[
+            styles.container,
+            { bottom: Math.max(insets.bottom, 20) },
+            containerStyle
+        ]}>
+            <BlurView intensity={60} tint="dark" style={styles.blur}>
+                <View style={styles.content}>
                     {TABS.map((tab) => {
                         const routeIndex = state.routes.findIndex(r => r.name === tab.name);
                         if (routeIndex === -1) return null;
@@ -81,50 +68,32 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
                         const isFocused = state.index === routeIndex;
 
                         const onPress = () => {
-                            haptics.selectionChanged();
-
-                            const event = navigation.emit({
-                                type: 'tabPress',
-                                target: route.key,
-                                canPreventDefault: true,
-                            });
-
-                            if (!isFocused && !event.defaultPrevented) {
+                            if (!isFocused) {
+                                haptics.tabChanged(); // Selection haptic
                                 navigation.navigate(route.name);
                             }
+                            showNav();
                         };
 
                         return (
                             <TouchableOpacity
                                 key={tab.name}
                                 onPress={onPress}
-                                style={styles.tabItem}
+                                style={styles.tab}
                                 activeOpacity={0.7}
                             >
-                                <Animated.View style={[styles.iconContainer, isFocused && styles.iconContainerActive]}>
+                                <View style={[styles.iconWrap, isFocused && styles.iconWrapActive]}>
                                     {isFocused ? (
                                         <LinearGradient
                                             colors={['#f59e0b', '#d97706']}
                                             style={styles.iconGradient}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
                                         >
-                                            <Ionicons
-                                                name={tab.icon as any}
-                                                size={22}
-                                                color="#fff"
-                                            />
+                                            <Ionicons name={tab.icon as any} size={20} color="#fff" />
                                         </LinearGradient>
                                     ) : (
-                                        <View style={styles.iconInner}>
-                                            <Ionicons
-                                                name={tab.icon as any}
-                                                size={22}
-                                                color="#71717a"
-                                            />
-                                        </View>
+                                        <Ionicons name={`${tab.icon}-outline` as any} size={20} color="#71717a" />
                                     )}
-                                </Animated.View>
+                                </View>
                                 <Text style={[styles.label, isFocused && styles.labelActive]}>
                                     {tab.label}
                                 </Text>
@@ -140,78 +109,60 @@ export default function CustomTabBar({ state, descriptors, navigation }: BottomT
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        left: 24,
-        right: 24,
+        left: 20,
+        right: 20,
         borderRadius: 28,
         overflow: 'hidden',
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
+        shadowOpacity: 0.3,
         shadowRadius: 16,
-        elevation: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        elevation: 10,
     },
-    blurContainer: {
-        width: '100%',
-        backgroundColor: 'rgba(15,15,18,0.85)',
+    blur: {
+        backgroundColor: 'rgba(18,18,20,0.9)',
     },
-    contentContainer: {
+    content: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 8,
     },
-    tabItem: {
+    tab: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 8,
+        paddingHorizontal: 12,
         paddingVertical: 4,
     },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+    iconWrap: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-        overflow: 'hidden',
     },
-    iconContainerActive: {
-        borderColor: 'rgba(245,158,11,0.4)',
-        shadowColor: "#f59e0b",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
-        elevation: 8,
-        transform: [{ scale: 1.05 }],
+    iconWrapActive: {
+        shadowColor: '#f59e0b',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
     },
     iconGradient: {
-        width: '100%',
-        height: '100%',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 24,
-    },
-    iconInner: {
-        width: '100%',
-        height: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 24,
     },
     label: {
         fontSize: 10,
-        fontWeight: '600',
+        fontWeight: '500',
         color: '#52525b',
-        marginTop: 6,
-        letterSpacing: 0.3,
+        marginTop: 4,
     },
     labelActive: {
         color: '#f59e0b',
-        fontWeight: '700',
+        fontWeight: '600',
     },
 });
