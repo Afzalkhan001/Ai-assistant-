@@ -6,10 +6,12 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInDown, FadeIn, Layout } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL, StorageKeys } from '../constants';
+import { haptics } from '../utils/haptics';
 
 interface Message {
     id: string;
@@ -32,10 +34,11 @@ export default function ChatScreen() {
 
     useEffect(() => {
         checkAuthAndLoad();
+        haptics.light(); // Light haptic on screen load
     }, []);
 
     useEffect(() => {
-        if (messages.length > 0) {
+        if (messages.length > 0 && !isLoadingHistory) {
             setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
@@ -65,7 +68,7 @@ export default function ChatScreen() {
         setIsLoadingHistory(true);
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
 
             const response = await fetch(`${API_URL}/messages/${userId}?limit=50`, {
                 signal: controller.signal
@@ -101,6 +104,8 @@ export default function ChatScreen() {
 
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
+
+        haptics.success(); // Success haptic on send
 
         const userMsg: Message = {
             id: `user-${Date.now()}`,
@@ -138,6 +143,7 @@ export default function ChatScreen() {
             if (!response.ok) throw new Error('Failed');
 
             const data = await response.json();
+            haptics.light(); // Light haptic on response
 
             setMessages(prev => [...prev, {
                 id: `assistant-${Date.now()}`,
@@ -146,6 +152,7 @@ export default function ChatScreen() {
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             }]);
         } catch (e) {
+            haptics.warning(); // Warning haptic on error
             setMessages(prev => [...prev, {
                 id: `error-${Date.now()}`,
                 role: 'assistant',
@@ -158,7 +165,9 @@ export default function ChatScreen() {
     };
 
     const handleToneChange = async (newTone: typeof toneMode) => {
+        if (newTone === toneMode) return;
         setToneMode(newTone);
+        haptics.selection(); // Selection haptic for mode change
         await AsyncStorage.setItem(StorageKeys.TONE_MODE, newTone);
     };
 
@@ -172,11 +181,15 @@ export default function ChatScreen() {
         return map[tone] || 'Balanced';
     };
 
-    const renderMessage = ({ item }: { item: Message }) => (
-        <View style={[
-            styles.msgContainer,
-            item.role === 'user' ? styles.msgContainerUser : styles.msgContainerAssistant
-        ]}>
+    const renderMessage = ({ item, index }: { item: Message; index: number }) => (
+        <Animated.View
+            entering={FadeInDown.delay(Math.min(index * 20, 100)).duration(200)}
+            layout={Layout.springify()}
+            style={[
+                styles.msgContainer,
+                item.role === 'user' ? styles.msgContainerUser : styles.msgContainerAssistant
+            ]}
+        >
             {item.role === 'user' ? (
                 <LinearGradient
                     colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.06)']}
@@ -195,7 +208,7 @@ export default function ChatScreen() {
             ]}>
                 {item.timestamp}
             </Text>
-        </View>
+        </Animated.View>
     );
 
     return (
@@ -217,7 +230,10 @@ export default function ChatScreen() {
                                 <Text style={styles.subtitle}>{getToneLabel(toneMode)}</Text>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.menuBtn}>
+                        <TouchableOpacity
+                            style={styles.menuBtn}
+                            onPress={() => haptics.light()}
+                        >
                             <Ionicons name="ellipsis-vertical" size={18} color="#71717a" />
                         </TouchableOpacity>
                     </View>
@@ -252,21 +268,21 @@ export default function ChatScreen() {
                         contentContainerStyle={styles.messagesList}
                         showsVerticalScrollIndicator={false}
                         ListHeaderComponent={
-                            <View style={styles.conversationBadge}>
+                            <Animated.View entering={FadeIn.duration(300)} style={styles.conversationBadge}>
                                 <Text style={styles.badgeText}>CONVERSATION</Text>
-                            </View>
+                            </Animated.View>
                         }
                         ListFooterComponent={
                             isLoading ? (
-                                <View style={styles.typingContainer}>
+                                <Animated.View entering={FadeIn.duration(200)} style={styles.typingContainer}>
                                     <View style={styles.typingBubble}>
                                         <View style={styles.typingDots}>
-                                            <View style={[styles.dot, { opacity: 0.4 }]} />
+                                            <View style={[styles.dot, { opacity: 0.5 }]} />
                                             <View style={[styles.dot, { opacity: 0.7 }]} />
                                             <View style={styles.dot} />
                                         </View>
                                     </View>
-                                </View>
+                                </Animated.View>
                             ) : null
                         }
                     />
@@ -289,6 +305,7 @@ export default function ChatScreen() {
                                 maxLength={1000}
                                 returnKeyType="send"
                                 onSubmitEditing={sendMessage}
+                                editable={!isLoading}
                             />
                             <TouchableOpacity
                                 onPress={sendMessage}
