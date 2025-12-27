@@ -29,10 +29,52 @@ export default function ChatScreen() {
         return userStr ? JSON.parse(userStr) : null;
     };
 
+    const loadHistoryWithRetry = async (userId: string, retryCount = 0): Promise<any[]> => {
+        const maxRetries = 3;
+        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+
+        try {
+            console.log(`Loading messages for user ${userId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+            const response = await fetch(`${API_URL}/messages/${userId}?limit=50`);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`HTTP ${response.status}: ${JSON.stringify(errorData)}`);
+            }
+
+            const data = await response.json();
+            console.log(`Loaded ${data.messages?.length || 0} messages`);
+
+            if (data.messages && data.messages.length > 0) {
+                return data.messages.map((m: any) => ({
+                    id: m.id,
+                    role: m.role,
+                    content: m.content,
+                    timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    created_at: m.created_at
+                }));
+            }
+            return [];
+        } catch (error) {
+            console.error(`Error loading messages (attempt ${retryCount + 1}):`, error);
+
+            // Retry logic
+            if (retryCount < maxRetries) {
+                console.log(`Retrying in ${retryDelay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                return loadHistoryWithRetry(userId, retryCount + 1);
+            }
+
+            // Max retries exceeded
+            throw error;
+        }
+    };
+
     useEffect(() => {
         const loadHistory = async () => {
             const user = getUser();
             if (!user?.id) {
+                console.log('No user found, showing welcome message');
                 setIsLoadingHistory(false);
                 setMessages([{
                     id: 'welcome',
@@ -44,32 +86,26 @@ export default function ChatScreen() {
             }
 
             try {
-                const response = await fetch(`${API_URL}/messages/${user.id}?limit=50`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.messages && data.messages.length > 0) {
-                        setMessages(data.messages.map((m: any) => ({
-                            id: m.id,
-                            role: m.role,
-                            content: m.content,
-                            timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            created_at: m.created_at
-                        })));
-                    } else {
-                        setMessages([{
-                            id: 'welcome',
-                            role: 'assistant',
-                            content: "Hey. How's your day?",
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        }]);
-                    }
+                const loadedMessages = await loadHistoryWithRetry(user.id);
+
+                if (loadedMessages.length > 0) {
+                    setMessages(loadedMessages);
+                } else {
+                    // No messages in history, show welcome
+                    setMessages([{
+                        id: 'welcome',
+                        role: 'assistant',
+                        content: "Hey. How's your day?",
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }]);
                 }
             } catch (error) {
-                console.error('Error loading history:', error);
+                console.error('Failed to load message history after retries:', error);
+                // Show error message to user
                 setMessages([{
-                    id: 'welcome',
+                    id: 'error-loading',
                     role: 'assistant',
-                    content: "Hey. How's your day?",
+                    content: "I'm having trouble loading your message history. The backend might be offline. Your new messages will still work once it's back online.",
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 }]);
             } finally {

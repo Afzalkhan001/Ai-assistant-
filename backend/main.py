@@ -856,11 +856,56 @@ async def options_handler(full_path: str):
 @app.get("/health")
 async def health_check():
     openai_key = os.getenv("OPENAI_API_KEY")
+    
+    # Check database connectivity and tables
+    db_status = {
+        "connected": False,
+        "tables": {},
+        "error": None
+    }
+    
+    try:
+        # Test database connection by checking required tables
+        required_tables = [
+            "users",
+            "messages",
+            "conversation_contexts",
+            "user_patterns",
+            "user_events",
+            "daily_checkins",
+            "tasks"
+        ]
+        
+        for table_name in required_tables:
+            try:
+                # Try to count rows (this will fail if table doesn't exist)
+                result = supabase.table(table_name).select("id", count="exact").limit(0).execute()
+                db_status["tables"][table_name] = {
+                    "exists": True,
+                    "accessible": True,
+                    "count": result.count if hasattr(result, 'count') else "unknown"
+                }
+            except Exception as table_err:
+                db_status["tables"][table_name] = {
+                    "exists": False,
+                    "accessible": False,
+                    "error": str(table_err)
+                }
+        
+        db_status["connected"] = True
+        all_tables_exist = all(t.get("exists") for t in db_status["tables"].values())
+        
+    except Exception as e:
+        db_status["error"] = str(e)
+        all_tables_exist = False
+    
     return {
-        "status": "ok",
+        "status": "ok" if all_tables_exist else "degraded",
         "supabase_configured": bool(os.getenv("SUPABASE_URL")),
         "openai_configured": bool(openai_key),
-        "openai_key_preview": f"{openai_key[:8]}..." if openai_key else None
+        "openai_key_preview": f"{openai_key[:8]}..." if openai_key else None,
+        "database": db_status,
+        "all_tables_ready": all_tables_exist
     }
 
 # ==================== AUTH ENDPOINTS ====================
@@ -1166,6 +1211,19 @@ async def get_today_checkin(user_id: str):
 async def get_messages(user_id: str, limit: int = 50):
     """Get chat history for a user."""
     try:
+        print(f"DEBUG: Fetching messages for user_id: {user_id}, limit: {limit}")
+        
+        # Check if user exists first
+        user_check = supabase.table("users")\
+            .select("id")\
+            .eq("id", user_id)\
+            .execute()
+        
+        if not user_check.data:
+            print(f"DEBUG: User {user_id} not found in users table")
+            # Return empty messages instead of error (user might not have profile yet)
+            return {"messages": [], "warning": "User profile not found"}
+        
         result = supabase.table("messages")\
             .select("id, role, content, created_at")\
             .eq("user_id", user_id)\
@@ -1173,11 +1231,24 @@ async def get_messages(user_id: str, limit: int = 50):
             .limit(limit)\
             .execute()
         
+        print(f"DEBUG: Found {len(result.data) if result.data else 0} messages")
+        
         # Reverse to chronological order
         messages = list(reversed(result.data)) if result.data else []
         return {"messages": messages}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"ERROR: Failed to fetch messages for user {user_id}: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(f"ERROR: Traceback: {traceback.format_exc()}")
+        
+        # Return more helpful error message
+        error_detail = {
+            "error": str(e),
+            "type": type(e).__name__,
+            "user_id": user_id,
+            "hint": "Check if messages table exists and RLS policies allow service_role access"
+        }
+        raise HTTPException(status_code=500, detail=error_detail)
 
 @app.delete("/messages/{user_id}")
 async def clear_messages(user_id: str):
