@@ -1557,7 +1557,29 @@ async def chat(request: ChatRequest):
         )
         
         # Inject real-time context
-        enhanced_prompt = f"{base_prompt}\n\n{realtime_block}\n\nRESPONSE RULES:\n- 1-3 sentences MAX\n- Max 1 question\n- No lists, no emojis\n- Sound human, not AI\n- Reference behavior, not identity"
+        enhanced_prompt = f"""{base_prompt}
+
+{realtime_block}
+
+YOU HAVE ACCESS TO REAL-TIME DATA:
+- Current time, date, and day of week
+- Today's weather in India
+- Latest news headlines from India (top 3)
+- User's recent behavior patterns
+
+When user asks about news, weather, or current events:
+- Answer directly using the real-time context provided above
+- DO NOT say 'I don't have access' or 'I can't browse'
+- Reference the specific headlines or weather from the context
+- Keep it brief (1-3 sentences)
+
+RESPONSE RULES:
+- 1-3 sentences MAX
+- Max 1 question
+- No lists, no emojis
+- Sound human, not AI
+- Reference behavior, not identity
+- Use real-time data when relevant"""
         
         # STEP 12: Build GPT messages array
         messages = [{"role": "system", "content": system_prompt}]
