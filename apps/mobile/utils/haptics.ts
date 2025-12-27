@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 /**
  * AERA Haptics System
  * Simple, reliable haptic feedback for all interactions
+ * Last updated: 2025-12-27
  */
 
 // Core haptic patterns
