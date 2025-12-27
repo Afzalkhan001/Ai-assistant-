@@ -1499,13 +1499,11 @@ async def chat(request: ChatRequest):
             # Get user behavior signals
             behavior_signals = get_user_behavior_signals(user_id, supabase)
             
-            # Get weather context (only if last fetch was > 1 hour ago)
+            # Get weather context (cached for 1 hour)
             weather_ctx = get_weather_context()  # Default: Delhi
             
-            # Get news context (only if user asks, otherwise skip)
-            news_ctx = {'public_context': 'Normal day', 'top_headlines': []}
-            if any(word in request.message.lower() for word in ['news', 'today', 'happening']):
-                news_ctx = get_news_context()
+            # Get news context (ALWAYS fetch - it's fast and provides context)
+            news_ctx = get_news_context()
             
             # Build real-time context block
             realtime_block, _ = build_realtime_context_block(
