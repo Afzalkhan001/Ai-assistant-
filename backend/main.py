@@ -10,6 +10,14 @@ import re
 from typing import Optional, Literal
 from datetime import datetime
 
+# AERA v2 - Real-time context imports
+from utils.realtime_context import build_realtime_context_block, get_time_context
+from utils.weather import get_weather_context
+from utils.news import get_news_context, get_news_summary_for_user
+from utils.behavior_tracking import get_user_behavior_signals
+from utils.tone_control import enforce_tone_downgrade, get_last_checkin_mood
+from utils.response_validator import validate_response, log_validation_failure
+
 # Load environment variables - try .env.local first, then .env
 env_loaded = False
 if os.path.exists('.env.local'):
@@ -115,27 +123,28 @@ BALANCED_MODE = """
 MODE: BALANCED
 
 You are AERA in Balanced mode.
-Your job is to be honest, grounded, and supportive.
+You're honest, grounded, and slightly challenging.
 
 Rules:
-- Acknowledge feelings briefly, then move toward clarity
-- Light accountability is allowed
-- You MAY reference patterns, but gently
-- Ask at most ONE direct question
-- Encourage small, realistic actions
-- 1–4 sentences max
+- Acknowledge briefly, then move to clarity
+- Light accountability allowed
+- Reference patterns when relevant
+- One direct question max
+- Encourage small actions
+- 1-3 sentences max
+- Sound like a mature accountability partner
 
 Forbidden:
 - Harsh confrontation
 - Profanity
 - Lecturing
 - Over-enthusiasm
+- Therapy speak
 
-Language style: calm, direct, respectful, human
-
-Examples of good responses:
-- "I hear you. At the same time, this is the third time you've mentioned avoiding it. What's actually stopping you today?"
+Examples:
+- "I hear you. At the same time, this is the third time. What's actually stopping you?"
 - "You don't need motivation. Just one small step. What could that be?"
+- "Nights tend to be harder for you lately. Want to adjust the plan or commit properly?"
 """
 
 # 🔵 DIRECT MODE — "No fluff"
@@ -143,27 +152,27 @@ DIRECT_MODE = """
 MODE: DIRECT
 
 You are AERA in Direct mode.
-Your job is clarity and action, without emotional cushioning.
+Clarity and action, no cushioning.
 
 Rules:
-- Be concise and factual
-- Name avoidance clearly
-- Reference specific behavior or patterns
-- Ask ONE pointed question
+- Short, firm sentences
+- Call out avoidance clearly
+- Reference specific evidence
+- One pointed question max
 - Push toward action
-- 1–3 sentences max
+- 1-2 sentences only
+- Sound like a strict mentor who respects them
 
 Forbidden:
-- Empathy-heavy language
+- Empathy padding
 - Profanity
 - Insults
 - Emotional processing
 
-Language style: firm, neutral, grounded, precise
-
-Examples of good responses:
-- "You said you'd start at 9. It's now 10:30. What's the real reason it didn't happen?"
-- "This looks like avoidance, not lack of time. What are you choosing to do next?"
+Examples:
+- "You said you'd start at 9. It's 10:30. What stopped you?"
+- "This is avoidance, not lack of time. What's the move?"
+- "Same pattern as last week. What are you actually avoiding?"
 """
 
 # 🔴 RAW MODE — "Earned bluntness"
@@ -1473,38 +1482,84 @@ async def chat(request: ChatRequest):
             # Fallback: use provided conversation history (no persistence)
             return await chat_without_memory(request)
         
-        # STEP 3: Update last activity (GAP #4: silence intelligence)
+        # STEP 3: Update last activity
         update_last_activity(user_id)
         
-        # STEP 4: Get/create session (GAP #2: session boundaries)
+        # STEP 4: Get/create session
         session_id = get_current_session(user_id)
         
         # STEP 5: Save user message with session
         save_message(user_id, "user", request.message, session_id)
         
-        # STEP 6: Load last 15 messages from database
+        # STEP 6: AERA v2 - Build real-time context
+        try:
+            # Get time context
+            time_ctx = get_time_context(request.user_data.get('timezone', 'Asia/Kolkata') if request.user_data else 'Asia/Kolkata')
+            
+            # Get user behavior signals
+            behavior_signals = get_user_behavior_signals(user_id, supabase)
+            
+            # Get weather context (only if last fetch was > 1 hour ago)
+            weather_ctx = get_weather_context()  # Default: Delhi
+            
+            # Get news context (only if user asks, otherwise skip)
+            news_ctx = {'public_context': 'Normal day', 'top_headlines': []}
+            if any(word in request.message.lower() for word in ['news', 'today', 'happening']):
+                news_ctx = get_news_context()
+            
+            # Build real-time context block
+            realtime_block, _ = build_realtime_context_block(
+                user_id=user_id,
+                user_timezone=request.user_data.get('timezone', 'Asia/Kolkata') if request.user_data else 'Asia/Kolkata',
+                behavior_signals=behavior_signals,
+                weather_ctx=weather_ctx,
+                news_ctx=news_ctx
+            )
+        except Exception as e:
+            print(f"Real-time context error: {e}")
+            realtime_block = "[REAL-TIME CONTEXT UNAVAILABLE]"
+            time_ctx = {'is_late_night': False}
+            behavior_signals = {}
+        
+        # STEP 7: Load last 15 messages from database
         recent_messages = load_recent_messages(user_id, limit=15)
         
-        # STEP 7: Load conversation context (tone, summary)
+        # STEP 8: Load conversation context (tone, summary)
         context = load_conversation_context(user_id)
         
-        # STEP 8: Load active patterns (confidence > 0.4)
+        # STEP 9: Load active patterns (confidence > 0.4)
         patterns = load_user_patterns(user_id, min_confidence=0.4)
         
-        # STEP 9: Derive user state (REFINEMENT #1)
+        # STEP 10: Derive user state
         user_state = derive_user_state(user_id)
         
-        # STEP 10: Apply tone downgrade if needed (safety)
+        # STEP 11: AERA v2 - Server-side tone enforcement
         requested_tone = request.tone_mode if request.tone_mode in ALLOWED_TONES else context.get("current_tone", "balanced")
-        actual_tone = should_downgrade_tone(user_id, requested_tone)
         
-        # STEP 11: Build system prompt with all intelligence
-        system_prompt = build_memory_system_prompt(
+        # Get recent mood for tone enforcement
+        recent_mood = get_last_checkin_mood(user_id, supabase)
+        
+        # Enforce tone downgrade based on safety signals
+        actual_tone, downgrade_reason = enforce_tone_downgrade(
+            requested_tone=requested_tone,
+            behavior_signals=behavior_signals,
+            recent_mood=recent_mood,
+            time_ctx=time_ctx
+        )
+        
+        if downgrade_reason:
+            print(f"[TONE ENFORCEMENT] {requested_tone} → {actual_tone}. Reason: {downgrade_reason}")
+        
+        # STEP 12: Build enhanced system prompt with real-time context
+        base_prompt = build_memory_system_prompt(
             tone_mode=actual_tone,
             last_summary=context.get("last_summary"),
             patterns=patterns,
             user_state=user_state
         )
+        
+        # Inject real-time context
+        enhanced_prompt = f"{base_prompt}\n\n{realtime_block}\n\nRESPONSE RULES:\n- 1-3 sentences MAX\n- Max 1 question\n- No lists, no emojis\n- Sound human, not AI\n- Reference behavior, not identity"
         
         # STEP 12: Build GPT messages array
         messages = [{"role": "system", "content": system_prompt}]
