@@ -1582,7 +1582,7 @@ RESPONSE RULES:
 - Use real-time data when relevant"""
         
         # STEP 12: Build GPT messages array
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role": "system", "content": enhanced_prompt}]
         messages.extend(recent_messages)
         
         # STEP 13: Call GPT-4o-mini with tight constraints
